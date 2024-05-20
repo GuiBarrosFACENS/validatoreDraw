@@ -1,0 +1,318 @@
+Entendi, você quer manter a estrutura atual do seu aplicativo, mas melhorar a forma como os erros de validação são retornados, fornecendo informações detalhadas sobre quais campos estão nulos ou inválidos. Vamos adaptar o GlobalExceptionHandler para retornar mensagens mais detalhadas, incluindo logs.
+
+Atualização do GlobalExceptionHandler
+Vamos melhorar o GlobalExceptionHandler para capturar e retornar mensagens detalhadas sobre os erros de validação.
+
+java
+Copiar código
+package com.example.demo.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@ControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+
+        // Log detalhado do erro
+        errors.put("error", "Erro de validação dos dados do boleto");
+        errors.put("timestamp", java.time.LocalDateTime.now().toString());
+
+        return ResponseEntity.badRequest().body(errors);
+    }
+}
+Atualização do Serviço BoletoService
+Vamos também melhorar o serviço BoletoService para capturar e relatar erros específicos quando o boleto é pago e os campos são inválidos:
+
+java
+Copiar código
+package com.example.demo.service;
+
+import com.example.demo.domain.Boleto;
+import com.example.demo.exception.BoletoValidationException;
+import com.example.demo.validation.PaidBoletoValidationGroup;
+import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
+
+import javax.validation.Valid;
+import javax.validation.Validator;
+import java.util.Set;
+
+@Service
+@Validated
+public class BoletoService {
+    private final Validator validator;
+
+    public BoletoService(Validator validator) {
+        this.validator = validator;
+    }
+
+    public void validarBoleto(@Valid Boleto boleto) {
+        if (boleto.isPago()) {
+            Set<ConstraintViolation<Boleto>> violations = validator.validate(boleto, PaidBoletoValidationGroup.class);
+            if (!violations.isEmpty()) {
+                StringBuilder errorMessage = new StringBuilder("Erros de validação do boleto pago: ");
+                for (ConstraintViolation<Boleto> violation : violations) {
+                    errorMessage.append(String.format("%s: %s; ", violation.getPropertyPath(), violation.getMessage()));
+                }
+                throw new BoletoValidationException(errorMessage.toString());
+            }
+        }
+    }
+}
+Modelo Boleto
+Certifique-se de que o modelo Boleto está corretamente anotado para validação condicional:
+
+java
+Copiar código
+package com.example.demo.domain;
+
+import com.example.demo.validation.PaidBoletoValidationGroup;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import javax.validation.constraints.*;
+import java.math.BigDecimal;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Boleto {
+    private String codigoDoBoleto;
+
+    private String dataDeVencimento;
+
+    @NotNull(message = "Valor do Boleto não pode ser nulo", groups = PaidBoletoValidationGroup.class)
+    @DecimalMin(value = "0.01", message = "Valor do Boleto deve ser maior que zero", groups = PaidBoletoValidationGroup.class)
+    private BigDecimal valorDoBoleto;
+
+    @NotBlank(message = "Nome do Pagador não pode ser nulo ou vazio", groups = PaidBoletoValidationGroup.class)
+    private String nomeDoPagador;
+
+    @NotBlank(message = "CPF do Pagador não pode ser nulo ou vazio", groups = PaidBoletoValidationGroup.class)
+    @Pattern(regexp = "\\d{11}", message = "CPF do Pagador deve conter 11 dígitos", groups = PaidBoletoValidationGroup.class)
+    private String cpfDoPagador;
+
+    private String bancoEmissor;
+
+    private String linhaDigitavel;
+
+    private boolean pago;
+}
+Atualização do Controller
+Certifique-se de que o controller está configurado para capturar exceções e retornar os dados conforme esperado:
+
+java
+Copiar código
+package com.example.demo.api;
+
+import com.example.demo.domain.Boleto;
+import com.example.demo.exception.BoletoValidationException;
+import com.example.demo.service.BoletoService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.validation.Valid;
+
+@RestController
+@Validated
+public class BoletoApiController {
+
+    private final BoletoService boletoService;
+
+    public BoletoApiController(BoletoService boletoService) {
+        this.boletoService = boletoService;
+    }
+
+    public ResponseEntity<String> processBoleto(@Valid @RequestBody Boleto boleto) {
+        boletoService.validarBoleto(boleto);
+        return ResponseEntity.ok("Dados válidos");
+    }
+
+    @ExceptionHandler(BoletoValidationException.class)
+    public ResponseEntity<Map<String, String>> handleValidationException(BoletoValidationException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("error", ex.getMessage());
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        return ResponseEntity.badRequest().body(response);
+    }
+}
+Resumo
+GlobalExceptionHandler: Captura erros de validação e retorna mensagens detalhadas junto com um timestamp.
+BoletoService: Valida o objeto Boleto apenas se ele estiver marcado como pago e lança uma exceção detalhada se houver violações.
+BoletoApiController: Garante que as exceções são capturadas e as mensagens detalhadas são retornadas no corpo da resposta.
+Com essas mudanças, sua aplicação agora pode retornar mensagens de erro detalhadas, incluindo quais campos estão nulos ou inválidos, junto com um log de timestamp para facilitar o rastreamento dos erros.
+
+
+
+
+
+
+aonde que lugar ele manda que campo está nulo
+ChatGPT
+Para garantir que os detalhes de quais campos estão nulos ou inválidos sejam corretamente capturados e retornados, podemos ajustar tanto o serviço BoletoService quanto o GlobalExceptionHandler. Vamos detalhar isso:
+
+1. Serviço BoletoService
+No serviço BoletoService, garantimos que todas as violações de validação sejam capturadas e detalhadas. Aqui, utilizamos o Validator do Spring para validar os campos quando o boleto está marcado como pago. Em caso de erro, uma exceção personalizada com detalhes dos campos inválidos é lançada.
+
+java
+Copiar código
+package com.example.demo.service;
+
+import com.example.demo.domain.Boleto;
+import com.example.demo.exception.BoletoValidationException;
+import com.example.demo.validation.PaidBoletoValidationGroup;
+import org.springframework.stereotype.Service;
+
+import javax.validation.ConstraintViolation;
+import javax.validation.Valid;
+import javax.validation.Validator;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+public class BoletoService {
+    private final Validator validator;
+
+    public BoletoService(Validator validator) {
+        this.validator = validator;
+    }
+
+    public void validarBoleto(@Valid Boleto boleto) {
+        if (boleto.isPago()) {
+            Set<ConstraintViolation<Boleto>> violations = validator.validate(boleto, PaidBoletoValidationGroup.class);
+            if (!violations.isEmpty()) {
+                String errorMessage = violations.stream()
+                        .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
+                        .collect(Collectors.joining("; "));
+                throw new BoletoValidationException(errorMessage);
+            }
+        }
+    }
+}
+2. Exceção Personalizada BoletoValidationException
+Uma exceção personalizada que captura mensagens de erro detalhadas:
+
+java
+Copiar código
+package com.example.demo.exception;
+
+public class BoletoValidationException extends RuntimeException {
+    public BoletoValidationException(String message) {
+        super(message);
+    }
+}
+3. Controlador de Exceções GlobalExceptionHandler
+No GlobalExceptionHandler, capturamos as exceções e retornamos as mensagens detalhadas.
+
+java
+Copiar código
+package com.example.demo.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@ControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+
+        // Log detalhado do erro
+        errors.put("error", "Erro de validação dos dados do boleto");
+        errors.put("timestamp", java.time.LocalDateTime.now().toString());
+
+        return ResponseEntity.badRequest().body(errors);
+    }
+
+    @ExceptionHandler(BoletoValidationException.class)
+    public ResponseEntity<Map<String, String>> handleBoletoValidationException(BoletoValidationException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("error", ex.getMessage());
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        return ResponseEntity.badRequest().body(response);
+    }
+}
+4. Controlador BoletoApiController
+No controlador, garantimos que a validação é chamada e que qualquer exceção é tratada corretamente.
+
+java
+Copiar código
+package com.example.demo.api;
+
+import com.example.demo.domain.Boleto;
+import com.example.demo.exception.BoletoValidationException;
+import com.example.demo.service.BoletoService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.validation.Valid;
+
+@RestController
+@Validated
+public class BoletoApiController {
+
+    private final BoletoService boletoService;
+
+    public BoletoApiController(BoletoService boletoService) {
+        this.boletoService = boletoService;
+    }
+
+    public ResponseEntity<String> processBoleto(@Valid @RequestBody Boleto boleto) {
+        boletoService.validarBoleto(boleto);
+        return ResponseEntity.ok("Dados válidos");
+    }
+
+    @ExceptionHandler(BoletoValidationException.class)
+    public ResponseEntity<Map<String, String>> handleValidationException(BoletoValidationException ex) {
+        Map<String, String> response = new HashMap<>();
+        response.put("error", ex.getMessage());
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        return ResponseEntity.badRequest().body(response);
+    }
+}
+Resumo
+BoletoService: Valida o boleto apenas se estiver marcado como pago e lança uma exceção personalizada com detalhes dos campos inválidos.
+BoletoValidationException: Exceção personalizada para capturar mensagens de erro detalhadas.
+GlobalExceptionHandler: Captura as exceções de validação e retorna uma resposta detalhada.
+BoletoApiController: Processa o boleto e trata exceções.
+Com essas melhorias, seu aplicativo agora pode validar condicionalmente os campos do boleto, retornar mensagens detalhadas sobre campos inválidos ou nulos e fornecer um log com informações de timestamp.
