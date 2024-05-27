@@ -1,6 +1,3 @@
-package com.santander.mpa.domain.validation;
-
-import com.santander.mpa.domain.entity.BilledInvoiceYK;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
