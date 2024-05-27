@@ -1,42 +1,6 @@
+package com.santander.mpa.domain.validation;
 
-domain.entity.BilledInvoiceYK;
-validation.WhitelistValidation;
-infra.exception.ValidationException;
-
-import java.util.HashMap;
-import java.util.Map;
-
-public class ValidateBilledInvoiceYKCommand {
-
-    public boolean execute(BilledInvoiceYK billedInvoiceYK) {
-
-        WhitelistValidation whitelistValidation = null;
-
-        Map<String, String> constrainsViolation = new HashMap<>();
-
-        if (billedInvoiceYK.isPayd()) {
-            whitelistValidation.validateFields(billedInvoiceYK);
-        } else {
-            throw new ValidationException(createMessage(constrainsViolation));
-        }
-    }
-
-    private String createMessage(Map<String, String> constrainsViolation) {
-        StringBuilder message = new StringBuilder();
-        constrainsViolation
-                .keySet()
-                .forEach(
-                        key -> {
-                            String fieldMessageError =
-                                    String.format("Field '%s' is value '%s' %n", key, constrainsViolation.get(key));
-                            message.append(fieldMessageError);
-                        });
-        return message.toString();
-    }
-
-}
-
-
+import com.santander.mpa.domain.entity.BilledInvoiceYK;
 
 import java.math.BigDecimal;
 import java.util.HashMap;
@@ -54,16 +18,22 @@ public class WhitelistValidation {
         fieldAccessors.put("finalBeneficiaryName", BilledInvoiceYK::getFinalBeneficiaryName);
     }
 
-    public static boolean validateFields(BilledInvoiceYK billedInvoiceYK){
-        for(Map.Entry<String, Function<BilledInvoiceYK, Object>> entry : fieldAccessors.entrySet()){
-            String fieldName = entry.getKey();
-            Object fieldValue = entry.getValue().apply(billedInvoiceYK);
+    public static Map<String, String> validateFields(BilledInvoiceYK billedInvoiceYK) {
+        Map<String, String> invalidFields = new HashMap<>();
 
-            if (!isNullOrEmpty(fieldValue)) {
-                throw new InvoicePaymentValidationException(String.format("%s não pode ser nulo ou vazio.", capitalize(fieldName)));
+        if (billedInvoiceYK.isPayd()) {
+            for (Map.Entry<String, Function<BilledInvoiceYK, Object>> entry : fieldAccessors.entrySet()) {
+                String fieldName = entry.getKey();
+                Object fieldValue = entry.getValue().apply(billedInvoiceYK);
+
+                if (isNullOrEmpty(fieldValue)) {
+                    invalidFields.put(fieldName, String.format("%s cannot be null or empty!", capitalize(fieldName)));
+                }
             }
+            //TODO RETORNA QUE O BOLETO NÃO É PAGO
         }
-        return true;
+
+        return invalidFields;
     }
 
     private static boolean isNullOrEmpty(Object value) {
@@ -77,6 +47,13 @@ public class WhitelistValidation {
             return ((BigDecimal) value).compareTo(BigDecimal.ZERO) <= 0;
         }
         return false;
+    }
+
+    private static String capitalize(String str) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+        return Character.toUpperCase(str.charAt(0)) + str.substring(1);
     }
 
 }
