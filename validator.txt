@@ -1,1 +1,203 @@
-ok
+import com.santander.mpa.domain.entity.BilledInvoiceYK;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class WhitelistValidationTest {
+
+    @Test
+    void testValidateFields_AllValid() {
+        BilledInvoiceYK billedInvoiceYK = createValidBilledInvoiceYK();
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertTrue(invalidFields.isEmpty());
+    }
+
+    @Test
+    void testValidateFields_UnpaidInvoice() {
+        BilledInvoiceYK billedInvoiceYK = createValidBilledInvoiceYK();
+        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertTrue(invalidFields.containsKey("payedValue"));
+    }
+
+    @Test
+    void testValidateFields_NullFields() {
+        BilledInvoiceYK billedInvoiceYK = createValidBilledInvoiceYK();
+        billedInvoiceYK.setMessage(null);
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertTrue(invalidFields.containsKey("message"));
+    }
+
+    @Test
+    void testValidateFields_EmptyStringFields() {
+        BilledInvoiceYK billedInvoiceYK = createValidBilledInvoiceYK();
+        billedInvoiceYK.setPaymentType("");
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertTrue(invalidFields.containsKey("paymentType"));
+    }
+
+    private BilledInvoiceYK createValidBilledInvoiceYK() {
+        return new BilledInvoiceYK(
+                "message", "function", "paymentType", "issueDate", "paymentDate",
+                new BigDecimal("100"), "paymentChannel", "paymentKind", new BigDecimal("200"),
+                "typeOfPersonAgreement", new BigDecimal("300"), new BigDecimal("400"),
+                "clientNumber", "participantCode", "txId", "payerDocumentType",
+                new BigDecimal("500"), "payerName", "finalBeneficiaryrDocumentType",
+                "finalBeneficiaryDocumentNumber", "dueDate", "finalBeneficiaryName",
+                new BigDecimal("1000"), new BigDecimal("800"), new BigDecimal("50"),
+                new BigDecimal("20"), new BigDecimal("30"), new BigDecimal("10"), new BigDecimal("5")
+        );
+    }
+}
+
+
+
+
+
+
+------------------
+
+
+
+
+
+
+
+3. Test Cases:
+
+a) All Valid Fields:
+
+Java
+@Test
+public void testValidateFields_AllValid() {
+    when(billedInvoiceYK.isPayd()).thenReturn(true); // Simulate paid invoice
+
+    Map<String, String> invalidFields = whitelistValidation.validateFields(billedInvoiceYK);
+
+    assertTrue(invalidFields.isEmpty(), "No invalid fields expected for a valid invoice");
+}
+Use o código com cuidado.
+content_copy
+b) Missing Required Field (Parameterized Test):
+
+Java
+@ParameterizedTest
+@ValueSource(strings = {"message", "function", "paymentType", "issueDate", "paymentDate",
+        "bankCode", "paymentChannel", "paymentKind", "covenant", "typeOfPersonAgreement",
+        "agreementDocument", "clientNumber", "txId", "payerDocumentType", "payerDocumentNumber",
+        "payerName", "dueDate"})
+public void testValidateFields_MissingRequiredField(String missingField) {
+
+    // Create a mock BilledInvoiceYK with the missing field
+    BilledInvoiceYK mockInvoice = mock(BilledInvoiceYK.class);
+    when(mockInvoice.isPayd()).thenReturn(true); // Simulate paid invoice
+
+    // Simulate missing field by returning null for getter
+    when(mockInvoice.get" + missingField.toUpperCase() + "()").thenReturn(null);
+
+    Map<String, String> invalidFields = whitelistValidation.validateFields(mockInvoice);
+
+    assertFalse(invalidFields.isEmpty(), "Expected invalid fields for missing required field");
+    assertTrue(invalidFields.containsKey(missingField), "Missing field error expected for " + missingField);
+}
+Use o código com cuidado.
+content_copy
+c) Empty String for Required Field:
+
+Java
+@Test
+public void testValidateFields_EmptyRequiredField() {
+    when(billedInvoiceYK.isPayd()).thenReturn(true);
+    when(billedInvoiceYK.getMessage()).thenReturn(""); // Empty message
+
+    Map<String, String> invalidFields = whitelistValidation.validateFields(billedInvoiceYK);
+
+    assertFalse(invalidFields.isEmpty(), "Expected invalid fields for empty required field");
+    assertTrue(invalidFields.containsKey("message"), "Missing field error expected for message");
+}
+
+@Test
+public void testValidateFields_UnpaidInvoice() {
+    billedInvoiceYK.setPayd(false); // Set unpaid state directly
+    billedInvoiceYK.setPayedValue(null); // Simulate missing payedValue
+
+    Map<String, String> invalidFields = whitelistValidation.validateFields(billedInvoiceYK);
+
+    assertFalse(invalidFields.isEmpty(), "Expected invalid fields for unpaid invoice");
+    assertTrue(invalidFields.containsKey("payedValue"), "Missing field error expected for payedValue");
+}
+
+
+
+--------------------
+
+
+@Test
+public void testValidateFields_AllValid() {
+    // Configuração do cenário
+    when(billedInvoiceYK.isPayd()).thenReturn(true);
+
+    // Execução
+    Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+    // Verificação
+    assertTrue(invalidFields.isEmpty(), "Nenhum campo inválido deve ser retornado");
+}
+Teste para um campo nulo:
+Vamos criar um teste para verificar se um campo nulo resulta em um campo inválido retornado pela função validateFields.
+java
+Copiar código
+@Test
+public void testValidateFields_NullField() {
+    // Configuração do cenário
+    when(billedInvoiceYK.isPayd()).thenReturn(true);
+    when(billedInvoiceYK.getMessage()).thenReturn(null); // Simula um campo nulo
+
+    // Execução
+    Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+    // Verificação
+    assertTrue(invalidFields.containsKey("message"), "Campo 'message' deve ser considerado inválido");
+}
+Teste para um boleto não pago:
+Criaremos um teste para verificar se, quando o boleto não está pago, o campo payedValue é considerado inválido.
+java
+Copiar código
+@Test
+public void testValidateFields_NotPaid() {
+    // Configuração do cenário
+    when(billedInvoiceYK.isPayd()).thenReturn(false);
+
+    // Execução
+    Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+    // Verificação
+    assertTrue(invalidFields.containsKey("payedValue"), "Campo 'payedValue' deve ser considerado inválido");
+}
+Teste para um campo vazio:
+Criaremos um teste para verificar se um campo vazio resulta em um campo inválido retornado pela função validateFields.
+java
+Copiar código
+@Test
+public void testValidateFields_EmptyField() {
+    // Configuração do cenário
+    when(billedInvoiceYK.isPayd()).thenReturn(true);
+    when(billedInvoiceYK.getMessage()).thenReturn(""); // Simula um campo vazio
+
+    // Execução
+    Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+    // Verificação
+    assertTrue(invalidFields.containsKey("message"), "Campo 'message' deve ser considerado inválido");
+}
