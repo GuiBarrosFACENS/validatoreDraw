@@ -1,50 +1,180 @@
-package com.example.demo.exception;
+public class BilledInvoiceYK {
+  public BilledInvoiceYK() {}
 
-import javax.validation.ValidationException;
+  public BilledInvoiceYK(
+      String message,
+      String function,
+      String paymentType,
+      String issueDate,
+      String paymentDate,
+      BigDecimal bankCode,
+      String paymentChannel,
+      String paymentKind,
+      BigDecimal covenant,
+      String typeOfPersonAgreement,
+      BigDecimal agreementDocument,
+      BigDecimal bankNumber,
+      String clientNumber,
+      String participantCode,
+      String txId,
+      String payerDocumentType,
+      BigDecimal payerDocumentNumber,
+      String payerName,
+      String finalBeneficiaryrDocumentType,
+      String finalBeneficiaryDocumentNumber,
+      String dueDate,
+      String finalBeneficiaryName,
+      BigDecimal nominalValue,
+      BigDecimal payedValue,
+      BigDecimal interestValue,
+      BigDecimal fine,
+      BigDecimal deductionValue,
+      BigDecimal rebateValue,
+      BigDecimal iofValue) {
+    this.message = message;
+    this.function = function;
+    this.paymentType = paymentType;
+    this.issueDate = issueDate;
+    this.paymentDate = paymentDate;
+    this.bankCode = bankCode;
+    this.paymentChannel = paymentChannel;
+    this.paymentKind = paymentKind;
+    this.covenant = covenant;
+    this.typeOfPersonAgreement = typeOfPersonAgreement;
+    this.agreementDocument = agreementDocument;
+    this.bankNumber = bankNumber;
+    this.clientNumber = clientNumber;
+    this.participantCode = participantCode;
+    this.txId = txId;
+    this.payerDocumentType = payerDocumentType;
+    this.payerDocumentNumber = payerDocumentNumber;
+    this.payerName = payerName;
+    this.finalBeneficiaryrDocumentType = finalBeneficiaryrDocumentType;
+    this.finalBeneficiaryDocumentNumber = finalBeneficiaryDocumentNumber;
+    this.dueDate = dueDate;
+    this.finalBeneficiaryName = finalBeneficiaryName;
+    this.nominalValue = nominalValue;
+    this.payedValue = payedValue;
+    this.interestValue = interestValue;
+    this.fine = fine;
+    this.deductionValue = deductionValue;
+    this.rebateValue = rebateValue;
+    this.iofValue = iofValue;
+  }
 
-public class BoletoValidationException extends ValidationException {
-    public BoletoValidationException(String message) {
-        super(message);
-    }
-}
+  private String message;
 
+  private String function;
 
-package com.example.demo.util;
+  private String paymentType;
 
-import com.example.demo.domain.Boleto;
-import com.example.demo.exception.BoletoValidationException;
+  private String issueDate;
 
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
+  private String paymentDate;
+
+  private BigDecimal bankCode;
+
+  private String paymentChannel;
+
+  private String paymentKind;
+
+  private BigDecimal covenant;
+
+  private String typeOfPersonAgreement;
+
+  private BigDecimal agreementDocument;
+
+  private BigDecimal bankNumber;
+
+  private String clientNumber;
+
+  private String participantCode;
+
+  private String txId;
+
+  private String payerDocumentType;
+
+  private BigDecimal payerDocumentNumber;
+
+  private String payerName;
+
+  private String finalBeneficiaryrDocumentType;
+
+  private String finalBeneficiaryDocumentNumber;
+
+  private String dueDate;
+
+  private String finalBeneficiaryName;
+
+  private BigDecimal nominalValue;
+
+  private BigDecimal payedValue;
+
+  private BigDecimal interestValue;
+
+  private BigDecimal fine;
+
+  private BigDecimal deductionValue;
+
+  private BigDecimal rebateValue;
+
+  private BigDecimal iofValue;
+
+  public boolean isPayd() {
+    return getPayedValue().compareTo(BigDecimal.ZERO) > 0;
+  }
+  
+  meu dto
+  
+  meu validation 
+  
+  import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-public class BoletoValidator {
+public class WhitelistValidation {
 
-    private static final Map<String, Function<Boleto, Object>> fieldAccessors = new HashMap<>();
+    static final Map<String, Function<BilledInvoiceYK, Object>> fieldAccessors =
+            new HashMap<>();
 
     static {
-        fieldAccessors.put("codigoDoBoleto", Boleto::getCodigoDoBoleto);
-        fieldAccessors.put("dataDeVencimento", Boleto::getDataDeVencimento);
-        fieldAccessors.put("valorDoBoleto", Boleto::getValorDoBoleto);
-        fieldAccessors.put("nomeDoPagador", Boleto::getNomeDoPagador);
-        fieldAccessors.put("cpfDoPagador", Boleto::getCpfDoPagador);
-        fieldAccessors.put("bancoEmissor", Boleto::getBancoEmissor);
-        fieldAccessors.put("linhaDigitavel", Boleto::getLinhaDigitavel);
+        fieldAccessors.put("message", BilledInvoiceYK::getMessage);
+        fieldAccessors.put("function", BilledInvoiceYK::getFunction);
+        fieldAccessors.put("paymentType", BilledInvoiceYK::getPaymentType);
+        fieldAccessors.put("issueDate", BilledInvoiceYK::getIssueDate);
+        fieldAccessors.put("paymentDate", BilledInvoiceYK::getPaymentDate);
+        fieldAccessors.put("bankCode", BilledInvoiceYK::getBankCode);
+        fieldAccessors.put("paymentChannel", BilledInvoiceYK::getPaymentChannel);
+        fieldAccessors.put("paymentKind", BilledInvoiceYK::getPaymentKind);
+        fieldAccessors.put("covenant", BilledInvoiceYK::getCovenant);
+        fieldAccessors.put("typeOfPersonAgreement", BilledInvoiceYK::getTypeOfPersonAgreement);
+        fieldAccessors.put("agreementDocument", BilledInvoiceYK::getAgreementDocument);
+        fieldAccessors.put("clientNumber", BilledInvoiceYK::getClientNumber);
+        fieldAccessors.put("txId", BilledInvoiceYK::getTxId);
+        fieldAccessors.put("payerDocumentType", BilledInvoiceYK::getPayerDocumentType);
+        fieldAccessors.put("payerDocumentNumber", BilledInvoiceYK::getPayerDocumentNumber);
+        fieldAccessors.put("payerName", BilledInvoiceYK::getPayerName);
+        fieldAccessors.put("dueDate", BilledInvoiceYK::getDueDate);
     }
 
-    public static void validarCamposObrigatorios(Boleto boleto) {
-        if (boleto.isPago()) {
-            for (Map.Entry<String, Function<Boleto, Object>> entry : fieldAccessors.entrySet()) {
-                String fieldName = entry.getKey();
-                Object fieldValue = entry.getValue().apply(boleto);
+    public static Map<String, String> validateFields(BilledInvoiceYK billedInvoiceYK) {
+        Map<String, String> invalidFields = new HashMap<>();
 
-                if (isNullOrEmpty(fieldValue)) {
-                    throw new BoletoValidationException(String.format("%s não pode ser nulo ou vazio.", capitalize(fieldName)));
-                }
+        if (!billedInvoiceYK.isPayd()) {
+            invalidFields.put("payedValue", "cannot be null or empty!");
+        }
+
+        for (Map.Entry<String, Function<BilledInvoiceYK, Object>> entry : fieldAccessors.entrySet()) {
+            String fieldName = entry.getKey();
+            Object fieldValue = entry.getValue().apply(billedInvoiceYK);
+
+            if (isNullOrEmpty(fieldValue)) {
+                invalidFields.put(fieldName, String.format("%s cannot be null or empty!", fieldName));
             }
         }
+
+        return invalidFields;
     }
 
     private static boolean isNullOrEmpty(Object value) {
@@ -59,63 +189,102 @@ public class BoletoValidator {
         }
         return false;
     }
+}
 
-    private static String capitalize(String str) {
-        if (str == null || str.isEmpty()) {
-            return str;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.santander.mpa.domain.entity.BilledInvoiceYK;
+import org.apache.commons.io.FileUtils;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.util.Map;
+import java.util.function.Function;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.util.ResourceUtils;
+
+import java.util.Properties;
+
+@ExtendWith(MockitoExtension.class)
+@ActiveProfiles("teste")
+class WhitelistValidationTest {
+
+    @InjectMocks
+    WhitelistValidation whitelistValidation;
+
+    @Autowired
+    private BilledInvoiceYK billedInvoiceYK;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() throws IOException {
+        billedInvoiceIntializer();
+    }
+
+    public void billedInvoiceIntializer() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        this.objectMapper = Mockito.spy(objectMapper);
+
+        try {
+            File file = ResourceUtils.getFile("src/test/resources/json/billedInvoiceYK.json");
+            String jsonContent = FileUtils.readFileToString(file, "UTF-8");
+            billedInvoiceYK = objectMapper.readValue(jsonContent, BilledInvoiceYK.class);
+        } catch (Exception e) {
+            throw new IOException(e.getMessage());
         }
-        return Character.toUpperCase(str.charAt(0)) + str.substring(1);
     }
+
+    @Test
+    public void testValidateFields_AllValid() {
+
+        when(billedInvoiceYK.isPayd()).thenReturn(true);
+        mockFieldValues(billedInvoiceYK, false);
+
+        Map<String, String> result = WhitelistValidation.validateFields(billedInvoiceYK);
+        // function cannot be null or empty!
+        assertTrue(result.isEmpty(), "No validation errors expected for valid data.");
+    }
+
+    private void mockFieldValues(BilledInvoiceYK billedInvoiceYK, boolean setNull) {
+        for (Map.Entry<String, Function<BilledInvoiceYK, Object>> entry : WhitelistValidation.fieldAccessors.entrySet()) {
+            String fieldName = entry.getKey();
+            Object value = setNull ? null : getMockValueForField(entry.getValue());
+            Mockito.when(entry.getValue().apply(billedInvoiceYK)).thenReturn(value);
+            Mockito.spy(billedInvoiceYK);
+        }
+    }
+
+    private Object getMockValueForField(Function<BilledInvoiceYK, Object> function) {
+        Class<?> returnType = function.apply(null).getClass();
+        if (returnType == String.class) {
+            return "test";
+        } else if (returnType == BigDecimal.class) {
+            return BigDecimal.ONE;
+        }
+        return null;
+    }
+
 }
 
 
-package com.example.demo.service;
-
-import com.example.demo.domain.Boleto;
-import com.example.demo.util.BoletoValidator;
-import org.springframework.stereotype.Service;
-
-import javax.validation.Valid;
-
-@Service
-public class BoletoService {
-
-    public void validarBoleto(@Valid Boleto boleto) {
-        BoletoValidator.validarCamposObrigatorios(boleto);
-    }
-}
-
-
-package com.example.demo.api;
-
-import com.example.demo.domain.Boleto;
-import com.example.demo.exception.BoletoValidationException;
-import com.example.demo.service.BoletoService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
-
-import javax.validation.Valid;
-
-@RestController
-public class BoletoApiController implements BoletoApi {
-
-    private final BoletoService boletoService;
-
-    public BoletoApiController(BoletoService boletoService) {
-        this.boletoService = boletoService;
-    }
-
-    @Override
-    public ResponseEntity<String> processBoleto(@Valid @RequestBody Boleto boleto) {
-        boletoService.validarBoleto(boleto);
-        return ResponseEntity.ok("Dados válidos");
-    }
-
-    @ExceptionHandler(BoletoValidationException.class)
-    public ResponseEntity<String> handleValidationException(BoletoValidationException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
-    }
-}
+meu teste 
