@@ -105,3 +105,39 @@ class WhitelistValidationTest {
     Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
     assertTrue(invalidFields.containsKey("message"));
   }
+
+    @Test
+    public void testIsNullOrEmpty_BigDecimalZero() {
+        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertTrue(invalidFields.containsKey("payedValue"), "payedValue zero should be considered invalid");
+    }
+
+    @Test
+    public void testIsNullOrEmpty_BigDecimalPositive() {
+        billedInvoiceYK.setPayedValue(BigDecimal.valueOf(1));
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertFalse(invalidFields.containsKey("payedValue"), "payedValue greater than zero should be considered valid");
+    }
+
+    @Test
+    public void testIsNullOrEmpty_NonStringNonBigDecimal() {
+        // Adding a test for a field that is neither String nor BigDecimal
+        Map<String, Function<BilledInvoiceYK, Object>> fieldAccessorsBackup = new HashMap<>(WhitelistValidation.fieldAccessors);
+        
+        WhitelistValidation.fieldAccessors.put("nonStandardField", billedInvoice -> new Object());
+
+        billedInvoiceYK.setPayedValue(BigDecimal.valueOf(1));
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        // Ensure that no invalid fields are returned for non-String and non-BigDecimal fields
+        assertFalse(invalidFields.containsKey("nonStandardField"), "nonStandardField should not be considered invalid");
+
+        // Restore the original fieldAccessors
+        WhitelistValidation.fieldAccessors = fieldAccessorsBackup;
+    }
