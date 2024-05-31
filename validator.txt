@@ -141,3 +141,35 @@ class WhitelistValidationTest {
         // Restore the original fieldAccessors
         WhitelistValidation.fieldAccessors = fieldAccessorsBackup;
     }
+
+
+
+
+
+
+
+@Test
+public void testValidateFields_BigDecimalLessThanOrEqualToZero() {
+    // Setting BigDecimal fields to zero and negative value
+    billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
+    billedInvoiceYK.setBankCode(BigDecimal.valueOf(-1));
+
+    Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+    // Verifying that the invalidFields map contains the keys with the BigDecimal values that are <= 0
+    assertTrue(invalidFields.containsKey("payedValue"), "Expected invalid field for payedValue");
+    assertTrue(invalidFields.containsKey("bankCode"), "Expected invalid field for bankCode");
+}
+
+@Test
+public void testValidateFields_BigDecimalGreaterThanZero() {
+    // Setting BigDecimal fields to values greater than zero
+    billedInvoiceYK.setPayedValue(BigDecimal.valueOf(1));
+    billedInvoiceYK.setBankCode(BigDecimal.valueOf(1));
+
+    Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+    // Verifying that the invalidFields map does not contain the keys with the BigDecimal values that are > 0
+    assertFalse(invalidFields.containsKey("payedValue"), "Did not expect invalid field for payedValue");
+    assertFalse(invalidFields.containsKey("bankCode"), "Did not expect invalid field for bankCode");
+}
