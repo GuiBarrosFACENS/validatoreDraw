@@ -1,18 +1,247 @@
+WhitelistValidation
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+public class WhitelistValidation {
+
+  static Map<String, Function<BilledInvoiceYK, Object>> fieldAccessors = new HashMap<>();
+
+  static {
+    fieldAccessors.put("message", BilledInvoiceYK::getMessage);
+    fieldAccessors.put("function", BilledInvoiceYK::getFunction);
+    fieldAccessors.put("paymentType", BilledInvoiceYK::getPaymentType);
+    fieldAccessors.put("issueDate", BilledInvoiceYK::getIssueDate);
+    fieldAccessors.put("paymentDate", BilledInvoiceYK::getPaymentDate);
+    fieldAccessors.put("bankCode", BilledInvoiceYK::getBankCode);
+    fieldAccessors.put("paymentChannel", BilledInvoiceYK::getPaymentChannel);
+    fieldAccessors.put("paymentKind", BilledInvoiceYK::getPaymentKind);
+    fieldAccessors.put("covenant", BilledInvoiceYK::getCovenant);
+    fieldAccessors.put("typeOfPersonAgreement", BilledInvoiceYK::getTypeOfPersonAgreement);
+    fieldAccessors.put("agreementDocument", BilledInvoiceYK::getAgreementDocument);
+    fieldAccessors.put("clientNumber", BilledInvoiceYK::getClientNumber);
+    fieldAccessors.put("txId", BilledInvoiceYK::getTxId);
+    fieldAccessors.put("payerDocumentType", BilledInvoiceYK::getPayerDocumentType);
+    fieldAccessors.put("payerDocumentNumber", BilledInvoiceYK::getPayerDocumentNumber);
+    fieldAccessors.put("payerName", BilledInvoiceYK::getPayerName);
+    fieldAccessors.put("dueDate", BilledInvoiceYK::getDueDate);
+  }
+
+  public static Map<String, String> validateFields(BilledInvoiceYK billedInvoiceYK) {
+    Map<String, String> invalidFields = new HashMap<>();
+
+    if (!billedInvoiceYK.isPayd()) {
+      invalidFields.put("payedValue", "cannot be null or empty!");
+    }
+
+    for (Map.Entry<String, Function<BilledInvoiceYK, Object>> entry : fieldAccessors.entrySet()) {
+      String fieldName = entry.getKey();
+      Object fieldValue = entry.getValue().apply(billedInvoiceYK);
+
+      if (isNullOrEmpty(fieldValue)) {
+        invalidFields.put(fieldName, String.format("%s cannot be null or empty!", fieldName));
+      }
+    }
+
+    return invalidFields;
+  }
+
+  private static boolean isNullOrEmpty(Object value) {
+    if (value == null) {
+      return true;
+    }
+    if (value instanceof String) {
+      return ((String) value).trim().isEmpty();
+    }
+    if (value instanceof BigDecimal) {
+      return ((BigDecimal) value).compareTo(BigDecimal.ZERO) <= 0;
+    }
+    return false;
+  }
+}
+
+----
+
+teste WhitelistValidation funciona 100%
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.santander.mpa.domain.entity.BilledInvoiceYK;
+
+import java.io.File;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
+
+@ExtendWith(MockitoExtension.class)
+@ActiveProfiles("teste")
+class WhitelistValidationTest {
+
+    @InjectMocks
+    private WhitelistValidation whitelistValidation;
+
+    private BilledInvoiceYK billedInvoiceYK;
+
+    @BeforeEach
+    void setUp() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        billedInvoiceYK = objectMapper.readValue(new File("src/test/resources/json/billedInvoiceYK.json"), BilledInvoiceYK.class);
+    }
+
+    @Test
+    public void testValidate_AllFields() {
+        Map<String, String> invalidFields = whitelistValidation.validateFields(billedInvoiceYK);
+        assertTrue(invalidFields.isEmpty(), "field cannot be null or empty!");
+    }
+
+    @Test
+    public void testValidate_UnpaidInvoice() {
+        billedInvoiceYK.setPayd(false);
+        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
+
+        Map<String, String> invalidFields = whitelistValidation.validateFields(billedInvoiceYK);
+
+        assertFalse(invalidFields.isEmpty(), "Expected invalid fields for unpaid invoice");
+        assertTrue(invalidFields.containsKey("payedValue"), "Missing field error expected for payedValue");
+    }
+
+    @Test
+    public void testValidate_EmptyRequiredFields() {
+        billedInvoiceYK.setPayedValue(BigDecimal.valueOf(1));
+        billedInvoiceYK.setMessage("");
+
+        Map<String, String> invalidFields = whitelistValidation.validateFields(billedInvoiceYK);
+
+        assertFalse(invalidFields.isEmpty(), "Expected invalid fields for empty required field");
+        assertTrue(invalidFields.containsKey("message"), "Missing field error expected for message");
+    }
+
+    @Test
+    public void testValidateFields_BigDecimalLessThanOrEqualToZero() {
+        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
+        billedInvoiceYK.setBankCode(BigDecimal.valueOf(-1));
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertTrue(invalidFields.containsKey("payedValue"), "Expected invalid field for payedValue");
+        assertTrue(invalidFields.containsKey("bankCode"), "Expected invalid field for bankCode");
+    }
+
+    @Test
+    public void testValidateFields_BigDecimalGreaterThanZero() {
+        billedInvoiceYK.setPayedValue(BigDecimal.valueOf(1));
+        billedInvoiceYK.setBankCode(BigDecimal.valueOf(1));
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertFalse(invalidFields.containsKey("payedValue"), "Did not expect invalid field for payedValue");
+        assertFalse(invalidFields.containsKey("bankCode"), "Did not expect invalid field for bankCode");
+    }
+
+    @Test
+    void testValidate_NullFields() {
+        billedInvoiceYK.setMessage(null);
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertTrue(invalidFields.containsKey("message"));
+    }
+
+    @Test
+    public void testIsNullOrEmpty_BigDecimalZero() {
+        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertTrue(invalidFields.containsKey("payedValue"), "payedValue zero should be considered invalid");
+    }
+
+    @Test
+    public void testIsNullOrEmpty_BigDecimalPositive() {
+        billedInvoiceYK.setPayedValue(BigDecimal.valueOf(1));
+
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+
+        assertFalse(invalidFields.containsKey("payedValue"), "payedValue greater than zero should be considered valid");
+    }
+
+    @Test
+    public void testIsNullOrEmpty_NonStringNonBigDecimal() {
+        Map<String, Function<BilledInvoiceYK, Object>> fieldAccessorsBackup =
+                new HashMap<>(WhitelistValidation.fieldAccessors);
+        WhitelistValidation.fieldAccessors.put("nonStandardField", billedInvoice -> new Object());
+
+        billedInvoiceYK.setPayedValue(BigDecimal.valueOf(1));
+        Map<String, String> invalidFields = WhitelistValidation.validateFields(billedInvoiceYK);
+        assertFalse(invalidFields.containsKey("nonStandardField"), "nonStandardField should not be considered invalid");
+
+        WhitelistValidation.fieldAccessors = fieldAccessorsBackup;
+    }
+
+}
+
+---
+comand
+
+import java.util.Map;
+
+public class ValidateBilledInvoiceYKCommand {
+
+  public void execute(BilledInvoiceYK billedInvoiceYK) {
+    Map<String, String> constrainsViolation = WhitelistValidation.validateFields(billedInvoiceYK);
+    if (!constrainsViolation.isEmpty()) {
+      throw new ValidationException(createMessage(constrainsViolation));
+    }
+  }
+
+  public String createMessage(Map<String, String> constrainsViolation) {
+    StringBuilder message = new StringBuilder();
+    constrainsViolation.forEach(
+        (key, value) -> message.append(String.format("'%s' %n ", value)));
+    return message.toString();
+  }
+}
+
+
+----
+
+
+teste comand 
+
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.*;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
+@ActiveProfiles("teste")
 class ValidateBilledInvoiceYKCommandTest {
 
     @InjectMocks
@@ -21,92 +250,32 @@ class ValidateBilledInvoiceYKCommandTest {
     @Mock
     private WhitelistValidation whitelistValidation;
 
+    @Mock
     private BilledInvoiceYK billedInvoiceYK;
 
     @BeforeEach
     void setUp() throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper = Mockito.spy(objectMapper);
-        billedInvoiceYK =
-                objectMapper.readValue(
-                        new File("src/test/resources/json/billedInvoiceYK.json"), BilledInvoiceYK.class);
+        billedInvoiceYK = objectMapper.readValue(new File("src/test/resources/json/billedInvoiceYK.json"), BilledInvoiceYK.class);
     }
-
-    @Test
-    public void testExecute_ValidInvoice() {
-        Map<String, String> invalidFields = whitelistValidation.validateFields(billedInvoiceYK);
-        when(whitelistValidation.validateFields(any(BilledInvoiceYK.class))).thenReturn(Collections.emptyMap());
-
-        validateBilledInvoiceYKCommand.execute(billedInvoiceYK);
-    }
-
-    @Test
-    public void testExecute_InvalidInvoice_ThrowsException() throws Exception {
-        Map<String, String> violations = Collections.singletonMap("bankCode", "bankCode cannot be null or empty!");
-        when(whitelistValidation.validateFields(any(BilledInvoiceYK.class))).thenReturn(violations);
-
-        assertThrows(ValidationException.class, () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
-    }
-
-    @Test
-    public void testCreateMessage_EmptyViolations() throws Exception {
-        Map<String, String> emptyViolations = Collections.emptyMap();
-        String message = validateBilledInvoiceYKCommand.createMessage(emptyViolations);
-        assertEquals("", message);
-    }
-
-    @Test
-    public void testCreateMessage_WithViolations() throws Exception {
-        Map<String, String> violations = Collections.singletonMap("bankCode", "bankCode cannot be null or empty!");
-        String message = validateBilledInvoiceYKCommand.createMessage(violations);
-        assertEquals("'bankCode cannot be null or empty!'", message);
-    }
-}
-
-
-java.lang.NullPointerException: Cannot invoke "com.santander.mpa.domain.entity.BilledInvoiceYK.isPayd()" because "billedInvoiceYK" is null
-
-
-
 
     @Test
     void testExecute_ValidInvoice_NoExceptionThrown() {
-        // Arrange (set up mocks and expectations)
-        when(whitelistValidation.validateFields(billedInvoiceYK)).thenReturn(Collections.emptyMap());
+        assertDoesNotThrow(() -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
 
-        // Act (call the method under test)
-        validateBilledInvoiceYKCommand.execute(billedInvoiceYK);
-
-        // Assert (verify no exceptions were thrown)
         verify(whitelistValidation).validateFields(billedInvoiceYK);
-        verifyNoMoreInteractions(whitelistValidation); // Ensure no unexpected interactions
+        verifyNoMoreInteractions(whitelistValidation);
     }
 
-    @Test
-    void testExecute_InvalidInvoice_ThrowsValidationException() {
-        // Arrange
-        Map<String, String> violations = new HashMap<>();
-        violations.put("field1", "error message");
-        when(whitelistValidation.validateFields(billedInvoiceYK)).thenReturn(violations);
+}
 
-        // Act
-        assertThrows(ValidationException.class, () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+org.mockito.exceptions.misusing.UnfinishedVerificationException: 
+Missing method call for verify(mock) here:
+-> at com.santander.mpa.domain.command.ValidateBilledInvoiceYKCommandTest.testExecute_ValidInvoice_NoExceptionThrown(ValidateBilledInvoiceYKCommandTest.java:46)
 
-        // Assert
-        verify(whitelistValidation).validateFields(billedInvoiceYK);
-        verify(whitelistValidation, never()).createMessage(anyMap()); // Ensure createMessage is not called
-    }
+Example of correct verification:
+    verify(mock).doSomething()
 
-    @Test
-    void testExecute_InvalidInvoice_CreatesCorrectErrorMessage(IOException e) throws IOException {
-        // Arrange (Simulate IOException during test setup to avoid actual file access)
-        when(setUp().billedInvoiceYK).thenThrow(e);
-
-        // Act & Assert (combined due to exception handling)
-        try {
-            validateBilledInvoiceYKCommand.execute(billedInvoiceYK);
-            fail("Expected IOException"); // If no exception is thrown, the test fails
-        } catch (IOException expected) {
-            // Expected behavior, no need to verify interactions with mocks
-        }
-    }
+Also, this error might show up because you verify either of: final/private/equals()/hashCode() methods.
+Those methods *cannot* be stubbed/verified.
+Mocking methods declared on non-public parent classes is not supported.
