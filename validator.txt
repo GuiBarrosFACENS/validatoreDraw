@@ -287,44 +287,66 @@ Mocking methods declared on non-public parent classes is not supported.
 
 
 
-@Test
-    void testExecute_ValidInvoice_NoExceptionThrown() {
-        // Arrange (set up mocks and expectations)
-        when(whitelistValidation.validateFields(billedInvoiceYK)).thenReturn(Collections.emptyMap());
+-----
 
-        // Act (call the method under test)
-        validateBilledInvoiceYKCommand.execute(billedInvoiceYK);
-
-        // Assert (verify no exceptions were thrown)
-        verify(whitelistValidation).validateFields(billedInvoiceYK);
-        verifyNoMoreInteractions(whitelistValidation); // Ensure no unexpected interactions
-    }
 
     @Test
     void testExecute_InvalidInvoice_ThrowsValidationException() {
-        // Arrange
-        Map<String, String> violations = new HashMap<>();
-        violations.put("field1", "error message");
-        when(whitelistValidation.validateFields(billedInvoiceYK)).thenReturn(violations);
+        billedInvoiceYK.setPayd(false);
+        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
 
-        // Act
-        assertThrows(ValidationException.class, () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
-
-        // Assert
-        verify(whitelistValidation).validateFields(billedInvoiceYK);
-        verify(whitelistValidation, never()).createMessage(anyMap()); // Ensure createMessage is not called
+        ValidationException exception = assertThrows(ValidationException.class, () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+        assertTrue(exception.getMessage().contains("payedValue cannot be null or empty!"));
     }
 
     @Test
-    void testExecute_InvalidInvoice_CreatesCorrectErrorMessage(IOException e) throws IOException {
-        // Arrange (Simulate IOException during test setup to avoid actual file access)
-        when(setUp().billedInvoiceYK).thenThrow(e);
+    void testCreateMessage_WithViolations() {
+        Map<String, String> violations = Map.of("field1", "error1", "field2", "error2");
+        String message = validateBilledInvoiceYKCommand.createMessage(violations);
 
-        // Act & Assert (combined due to exception handling)
-        try {
-            validateBilledInvoiceYKCommand.execute(billedInvoiceYK);
-            fail("Expected IOException"); // If no exception is thrown, the test fails
-        } catch (IOException expected) {
-            // Expected behavior, no need to verify interactions with mocks
-        }
+        assertTrue(message.contains("error1"));
+        assertTrue(message.contains("error2"));
+    }
+
+    @Test
+    void testCreateMessage_NoViolations() {
+        Map<String, String> violations = Collections.emptyMap();
+        String message = validateBilledInvoiceYKCommand.createMessage(violations);
+
+        assertEquals("", message);
+    }
+
+    @Test
+    void testExecute_AllFieldsValid_NoExceptionThrown() {
+        billedInvoiceYK.setPayd(true);
+        billedInvoiceYK.setPayedValue(BigDecimal.ONE);
+        billedInvoiceYK.setMessage("Test message");
+
+        assertDoesNotThrow(() -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+    }
+
+    @Test
+    void testExecute_NullFields_ThrowsValidationException() {
+        billedInvoiceYK.setMessage(null);
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+        assertTrue(exception.getMessage().contains("message cannot be null or empty!"));
+    }
+
+    @Test
+    void testExecute_EmptyStringFields_ThrowsValidationException() {
+        billedInvoiceYK.setMessage("");
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+        assertTrue(exception.getMessage().contains("message cannot be null or empty!"));
+    }
+
+    @Test
+    void testExecute_BigDecimalLessThanOrEqualToZero_ThrowsValidationException() {
+        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
+        billedInvoiceYK.setBankCode(BigDecimal.valueOf(-1));
+
+        ValidationException exception = assertThrows(ValidationException.class, () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+        assertTrue(exception.getMessage().contains("payedValue cannot be null or empty!"));
+        assertTrue(exception.getMessage().contains("bankCode cannot be null or empty!"));
     }
