@@ -1,1 +1,67 @@
-ç
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+class ValidateBilledInvoiceYKCommandTest {
+
+    @InjectMocks
+    private ValidateBilledInvoiceYKCommand validateBilledInvoiceYKCommand;
+
+    @Mock
+    private WhitelistValidation whitelistValidation;
+
+    private BilledInvoiceYK billedInvoiceYK;
+
+    @BeforeEach
+    void setUp() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper = Mockito.spy(objectMapper);
+        billedInvoiceYK =
+                objectMapper.readValue(
+                        new File("src/test/resources/json/billedInvoiceYK.json"), BilledInvoiceYK.class);
+    }
+
+    @Test
+    public void testExecute_ValidInvoice() {
+        Map<String, String> invalidFields = whitelistValidation.validateFields(billedInvoiceYK);
+        when(whitelistValidation.validateFields(any(BilledInvoiceYK.class))).thenReturn(Collections.emptyMap());
+
+        validateBilledInvoiceYKCommand.execute(billedInvoiceYK);
+    }
+
+    @Test
+    public void testExecute_InvalidInvoice_ThrowsException() throws Exception {
+        Map<String, String> violations = Collections.singletonMap("bankCode", "bankCode cannot be null or empty!");
+        when(whitelistValidation.validateFields(any(BilledInvoiceYK.class))).thenReturn(violations);
+
+        assertThrows(ValidationException.class, () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+    }
+
+    @Test
+    public void testCreateMessage_EmptyViolations() throws Exception {
+        Map<String, String> emptyViolations = Collections.emptyMap();
+        String message = validateBilledInvoiceYKCommand.createMessage(emptyViolations);
+        assertEquals("", message);
+    }
+
+    @Test
+    public void testCreateMessage_WithViolations() throws Exception {
+        Map<String, String> violations = Collections.singletonMap("bankCode", "bankCode cannot be null or empty!");
+        String message = validateBilledInvoiceYKCommand.createMessage(violations);
+        assertEquals("'bankCode cannot be null or empty!'", message);
+    }
+}
+
+
+java.lang.NullPointerException: Cannot invoke "com.santander.mpa.domain.entity.BilledInvoiceYK.isPayd()" because "billedInvoiceYK" is null
