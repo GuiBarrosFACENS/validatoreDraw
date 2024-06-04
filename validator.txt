@@ -1,114 +1,55 @@
-import java.io.File;
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.Map;
+1. testExecute_ValidInvoice_NoExceptionThrown:
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.context.ActiveProfiles;
+Verifica se não há exceção lançada para uma fatura válida.
+Define o status de pagamento como verdadeiro e o valor pago como um BigDecimal positivo.
+Executa o método execute da classe ValidateBilledInvoiceYKCommand com a fatura válida.
+Não espera que ocorra uma exceção.
 
-@ExtendWith(MockitoExtension.class)
-@ActiveProfiles("teste")
-class ValidateBilledInvoiceYKCommandTest {
+2. testExecute_InvalidInvoice_ThrowsValidationException:
 
-    @InjectMocks
-    private ValidateBilledInvoiceYKCommand validateBilledInvoiceYKCommand;
+Verifica se uma exceção de validação é lançada para uma fatura inválida.
+Define o status de pagamento como falso e o valor pago como zero.
+Executa o método execute com a fatura inválida.
+Espera-se que uma exceção de ValidationException seja lançada.
 
-    private WhitelistValidation whitelistValidation;
+3. testCreateMessage_WithViolations:
 
-    private BilledInvoiceYK billedInvoiceYK;
+Testa a criação de uma mensagem de exceção com violações.
+Define um mapa de violações com alguns campos e mensagens de erro.
+Chama o método createMessage da classe ValidateBilledInvoiceYKCommand.
+Verifica se a mensagem de exceção contém as mensagens de erro esperadas.
 
-    @BeforeEach
-    void setUp() throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        billedInvoiceYK =
-                objectMapper.readValue(
-                        new File("src/test/resources/json/billedInvoiceYK.json"), BilledInvoiceYK.class);
-    }
+4. testCreateMessage_NoViolations:
 
-    @Test
-    void testExecute_ValidInvoice_NoExceptionThrown() {
-        billedInvoiceYK.setPayd(true);
-        billedInvoiceYK.setPayedValue(BigDecimal.ONE);
+Testa a criação de uma mensagem de exceção sem violações.
+Define um mapa vazio de violações.
+Chama o método createMessage.
+Verifica se a mensagem de exceção está vazia.
 
-        assertDoesNotThrow(() -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
-    }
+5. testExecute_AllFieldsValid_NoExceptionThrown:
 
-    @Test
-    void testExecute_InvalidInvoice_ThrowsValidationException() {
-        billedInvoiceYK.setPayd(false);
-        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
+Verifica se não há exceção lançada quando todos os campos da fatura são válidos.
+Define o status de pagamento como verdadeiro, o valor pago como um BigDecimal positivo e uma mensagem válida.
+Executa o método execute.
+Não espera que ocorra uma exceção.
 
-        ValidationException exception =
-                assertThrows(
-                        ValidationException.class,
-                        () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
-        assertFalse(exception.getMessage().contains("payedValue cannot be null or empty!"));
-    }
+7. testExecute_NullFields_ThrowsValidationException:
 
-    @Test
-    void testCreateMessage_WithViolations() {
-        Map<String, String> violations = Map.of("field1", "error1", "field2", "error2");
-        String message = validateBilledInvoiceYKCommand.createMessage(violations);
+Verifica se uma exceção é lançada quando campos obrigatórios são nulos.
+Define a mensagem como nula.
+Executa o método execute.
+Espera-se que uma exceção de ValidationException seja lançada.
 
-        assertTrue(message.contains("error1"));
-        assertTrue(message.contains("error2"));
-    }
+8. testExecute_EmptyStringFields_ThrowsValidationException:
 
-    @Test
-    void testCreateMessage_NoViolations() {
-        Map<String, String> violations = Collections.emptyMap();
-        String message = validateBilledInvoiceYKCommand.createMessage(violations);
+Verifica se uma exceção é lançada quando campos obrigatórios são vazios.
+Define a mensagem como vazia.
+Executa o método execute.
+Espera-se que uma exceção de ValidationException seja lançada.
 
-        assertEquals("", message);
-    }
+9. testExecute_BigDecimalLessThanOrEqualToZero_ThrowsValidationException:
 
-    @Test
-    void testExecute_AllFieldsValid_NoExceptionThrown() {
-        billedInvoiceYK.setPayd(true);
-        billedInvoiceYK.setPayedValue(BigDecimal.ONE);
-        billedInvoiceYK.setMessage("Test message");
-
-        assertDoesNotThrow(() -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
-    }
-
-    @Test
-    void testExecute_NullFields_ThrowsValidationException() {
-        billedInvoiceYK.setMessage(null);
-
-        ValidationException exception =
-                assertThrows(
-                        ValidationException.class,
-                        () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
-        assertFalse(exception.getMessage().contains("message cannot be null or empty!"));
-    }
-
-    @Test
-    void testExecute_EmptyStringFields_ThrowsValidationException() {
-        billedInvoiceYK.setMessage("");
-
-        ValidationException exception =
-                assertThrows(
-                        ValidationException.class,
-                        () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
-        assertFalse(exception.getMessage().contains("message cannot be null or empty!"));
-    }
-
-    @Test
-    void testExecute_BigDecimalLessThanOrEqualToZero_ThrowsValidationException() {
-        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
-        billedInvoiceYK.setBankCode(BigDecimal.valueOf(-1));
-
-        ValidationException exception =
-                assertThrows(
-                        ValidationException.class,
-                        () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
-        assertFalse(exception.getMessage().contains("payedValue cannot be null or empty!"));
-        assertFalse(exception.getMessage().contains("bankCode cannot be null or empty!"));
-    }
-
-}
+Verifica se uma exceção é lançada quando um campo BigDecimal é menor ou igual a zero.
+Define o valor pago e o código do banco como zero ou negativo.
+Executa o método execute.
+Espera-se que uma exceção de ValidationException seja lançada.
