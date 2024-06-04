@@ -1,66 +1,114 @@
+import java.io.File;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.Map;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.*;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.context.ActiveProfiles;
 
--- 
-validação
+@ExtendWith(MockitoExtension.class)
+@ActiveProfiles("teste")
+class ValidateBilledInvoiceYKCommandTest {
 
-Vamos analisar cada um dos testes na classe WhitelistValidationTest:
+    @InjectMocks
+    private ValidateBilledInvoiceYKCommand validateBilledInvoiceYKCommand;
 
-testValidate_AllFields:
+    private WhitelistValidation whitelistValidation;
 
-Este teste verifica se não há campos inválidos em uma fatura válida.
-Executa o método validateFields da classe WhitelistValidation com uma fatura válida.
-Verifica se o mapa de campos inválidos está vazio.
-Caso contrário, lança uma mensagem de erro indicando que o campo não pode ser nulo ou vazio.
-testValidate_UnpaidInvoice:
+    private BilledInvoiceYK billedInvoiceYK;
 
-Verifica se há campos inválidos em uma fatura não paga.
-Define o status de pagamento da fatura como não pago e o valor pago como zero.
-Executa o método validateFields com a fatura não paga.
-Verifica se há campos inválidos no mapa retornado.
-Espera-se que o mapa não esteja vazio e que contenha a chave "payedValue".
-testValidate_EmptyRequiredFields:
+    @BeforeEach
+    void setUp() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        billedInvoiceYK =
+                objectMapper.readValue(
+                        new File("src/test/resources/json/billedInvoiceYK.json"), BilledInvoiceYK.class);
+    }
 
-Testa se há campos inválidos quando campos obrigatórios estão vazios.
-Define o valor pago como 1 e a mensagem como vazia.
-Executa o método validateFields com a fatura modificada.
-Verifica se há campos inválidos no mapa retornado.
-Espera-se que o mapa não esteja vazio e que contenha a chave "message".
-testValidateFields_BigDecimalLessThanOrEqualToZero:
+    @Test
+    void testExecute_ValidInvoice_NoExceptionThrown() {
+        billedInvoiceYK.setPayd(true);
+        billedInvoiceYK.setPayedValue(BigDecimal.ONE);
 
-Testa se há campos inválidos quando um campo BigDecimal é menor ou igual a zero.
-Define o valor pago e o código do banco como zero ou negativo.
-Executa o método validateFields com a fatura modificada.
-Verifica se há campos inválidos no mapa retornado.
-Espera-se que o mapa contenha as chaves "payedValue" e "bankCode".
-testValidateFields_BigDecimalGreaterThanZero:
+        assertDoesNotThrow(() -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+    }
 
-Testa se não há campos inválidos quando um campo BigDecimal é maior que zero.
-Define o valor pago e o código do banco como positivos.
-Executa o método validateFields com a fatura modificada.
-Verifica se não há campos inválidos no mapa retornado.
-testValidate_NullFields:
+    @Test
+    void testExecute_InvalidInvoice_ThrowsValidationException() {
+        billedInvoiceYK.setPayd(false);
+        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
 
-Testa se há campos inválidos quando um campo obrigatório é nulo.
-Define a mensagem como nula.
-Executa o método validateFields com a fatura modificada.
-Verifica se há campos inválidos no mapa retornado.
-Espera-se que o mapa contenha a chave "message".
-testIsNullOrEmpty_BigDecimalZero:
+        ValidationException exception =
+                assertThrows(
+                        ValidationException.class,
+                        () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+        assertFalse(exception.getMessage().contains("payedValue cannot be null or empty!"));
+    }
 
-Testa se um BigDecimal zero é considerado inválido.
-Define o valor pago como zero.
-Executa o método validateFields com a fatura modificada.
-Verifica se o mapa de campos inválidos contém o campo "payedValue".
-testIsNullOrEmpty_BigDecimalPositive:
+    @Test
+    void testCreateMessage_WithViolations() {
+        Map<String, String> violations = Map.of("field1", "error1", "field2", "error2");
+        String message = validateBilledInvoiceYKCommand.createMessage(violations);
 
-Testa se um BigDecimal positivo é considerado válido.
-Define o valor pago como positivo.
-Executa o método validateFields com a fatura modificada.
-Verifica se o mapa de campos inválidos não contém o campo "payedValue".
-testIsNullOrEmpty_NonStringNonBigDecimal:
+        assertTrue(message.contains("error1"));
+        assertTrue(message.contains("error2"));
+    }
 
-Testa se um campo não padrão (não String e não BigDecimal) não é considerado inválido.
-Adiciona um campo não padrão à lista de campos.
-Define o valor pago como positivo.
-Executa o método validateFields com a fatura modificada.
-Verifica se o mapa de campos inválidos não contém o campo não padrão.
+    @Test
+    void testCreateMessage_NoViolations() {
+        Map<String, String> violations = Collections.emptyMap();
+        String message = validateBilledInvoiceYKCommand.createMessage(violations);
+
+        assertEquals("", message);
+    }
+
+    @Test
+    void testExecute_AllFieldsValid_NoExceptionThrown() {
+        billedInvoiceYK.setPayd(true);
+        billedInvoiceYK.setPayedValue(BigDecimal.ONE);
+        billedInvoiceYK.setMessage("Test message");
+
+        assertDoesNotThrow(() -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+    }
+
+    @Test
+    void testExecute_NullFields_ThrowsValidationException() {
+        billedInvoiceYK.setMessage(null);
+
+        ValidationException exception =
+                assertThrows(
+                        ValidationException.class,
+                        () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+        assertFalse(exception.getMessage().contains("message cannot be null or empty!"));
+    }
+
+    @Test
+    void testExecute_EmptyStringFields_ThrowsValidationException() {
+        billedInvoiceYK.setMessage("");
+
+        ValidationException exception =
+                assertThrows(
+                        ValidationException.class,
+                        () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+        assertFalse(exception.getMessage().contains("message cannot be null or empty!"));
+    }
+
+    @Test
+    void testExecute_BigDecimalLessThanOrEqualToZero_ThrowsValidationException() {
+        billedInvoiceYK.setPayedValue(BigDecimal.ZERO);
+        billedInvoiceYK.setBankCode(BigDecimal.valueOf(-1));
+
+        ValidationException exception =
+                assertThrows(
+                        ValidationException.class,
+                        () -> validateBilledInvoiceYKCommand.execute(billedInvoiceYK));
+        assertFalse(exception.getMessage().contains("payedValue cannot be null or empty!"));
+        assertFalse(exception.getMessage().contains("bankCode cannot be null or empty!"));
+    }
+
+}
