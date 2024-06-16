@@ -1,1 +1,270 @@
 
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.springframework.batch.item.Chunk;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
+
+@Service
+@Slf4j
+public class KafkaWriterCustom implements ItemWriter<InvoicePaymentPlard> {
+
+  private final InvoiceCnabBatchProperties pocSpringBatchProperties;
+
+  private final KafkaTemplate<String, InvoicePaymentPlard> kafkaTemplate;
+
+  public KafkaWriterCustom(InvoiceCnabBatchProperties pocSpringBatchProperties, KafkaTemplate<String, InvoicePaymentPlard> kafkaTemplate) {
+    this.pocSpringBatchProperties = pocSpringBatchProperties;
+    this.kafkaTemplate = kafkaTemplate;
+  }
+
+
+  @Override
+  public void write(Chunk<? extends InvoicePaymentPlard> chunk) throws Exception {
+    chunk.forEach(invoicePaymentPlard -> {
+      ProducerRecord<String,InvoicePaymentPlard> producerRecord = new ProducerRecord(this.pocSpringBatchProperties.getPlardTopic(),invoicePaymentPlard);
+      kafkaTemplate.send(producerRecord);
+    });
+  }
+}
+
+classe a ser testada
+
+
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.stereotype.Component;
+
+/** App arsenal provider impl. */
+@Component
+@AllArgsConstructor
+@Slf4j
+public class KafkaProviderImpl implements KafkaProvider {
+
+  private final KafkaTemplate<String, String> kafkaTemplate;
+  private final InvoicePaymentYkProperties invoicePaymentYkProperties;
+  private final ObjectMapper objectMapper;
+
+  @Retryable(retryFor = ErrorSendTopicKafkaException.class, maxAttempts = 5)
+  public void sendTopic(BilledInvoicePlard billedInvoicePlard) {
+    try {
+      String messageBody = objectMapper.writeValueAsString(billedInvoicePlard);
+      this.sendMessage(messageBody);
+    } catch (Exception e) {
+      throw new ErrorSendTopicKafkaException(
+          String.valueOf(billedInvoicePlard.getTransactionNsu()), e);
+    }
+  }
+
+  private void sendMessage(String messageBody) {
+    kafkaTemplate
+        .send(invoicePaymentYkProperties.getPlardTopic(), messageBody)
+        .thenApply(
+            result -> {
+              log.debug(
+                  "Sent message= {} with offset= {}",
+                  messageBody,
+                  result.getRecordMetadata().offset());
+              return result;
+            });
+  }
+}
+
+classe exemplo que já está sendo testada
+
+import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import org.apache.commons.io.FileUtils;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.KafkaException;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.util.ResourceUtils;
+import org.springframework.util.StringUtils;
+
+@ActiveProfiles("test")
+@ExtendWith(MockitoExtension.class)
+class KafkaProviderImplTest {
+
+  private static final String TOPIC_KAFKA = "topic-example.v1.out";
+
+  private String jsonExpected;
+
+  private BilledInvoicePlard invoicePlardExpected;
+
+  private ObjectMapper objectMapper;
+
+  private KafkaProviderImpl kafkaProvider;
+
+  @Mock private KafkaTemplate<String, String> kafkaTemplate;
+
+  @BeforeEach
+  public void initializeMocks() throws IOException {
+    initializeObjectMapper();
+    initializeKafkaProvider();
+    initializeExpectedObjects();
+  }
+
+  private void initializeObjectMapper() {
+    ObjectMapper objectMapper = new InvoicePaymentYkConfig().objectMapper();
+    this.objectMapper = Mockito.spy(objectMapper);
+  }
+
+  private void initializeKafkaProvider() {
+    InvoicePaymentYkProperties invoicePaymentYkProperties = new InvoicePaymentYkProperties();
+    invoicePaymentYkProperties.setPlardTopic(TOPIC_KAFKA);
+    kafkaProvider =
+        new KafkaProviderImpl(kafkaTemplate, invoicePaymentYkProperties, this.objectMapper);
+  }
+
+  private void initializeExpectedObjects() throws IOException {
+    File file = ResourceUtils.getFile("src/test/resources/json/billet-invoice-plard.json");
+    jsonExpected = StringUtils.trimAllWhitespace(FileUtils.readFileToString(file));
+    invoicePlardExpected = objectMapper.readValue(jsonExpected, BilledInvoicePlard.class);
+  }
+
+  @Test
+  void sendTopicSuccessfully() {
+    CompletableFuture<SendResult<String, String>> result = mockCompletableFuture();
+    Mockito.when(kafkaTemplate.send(TOPIC_KAFKA, jsonExpected)).thenReturn(result);
+    Assertions.assertDoesNotThrow(() -> kafkaProvider.sendTopic(invoicePlardExpected));
+    verify(kafkaTemplate, Mockito.times(1)).send(TOPIC_KAFKA, jsonExpected);
+  }
+
+  private CompletableFuture<SendResult<String, String>> mockCompletableFuture() {
+    ProducerRecord<String, String> producerRecord = new ProducerRecord<>(TOPIC_KAFKA, jsonExpected);
+    TopicPartition topicPartition = new TopicPartition(TOPIC_KAFKA, 0);
+    RecordMetadata recordMetadata = new RecordMetadata(topicPartition, 0, 0, 0, 0, 0);
+    SendResult<String, String> result = new SendResult<>(producerRecord, recordMetadata);
+    return CompletableFuture.completedFuture(result);
+  }
+
+  @Test
+  void sendTopicInterruptedException() {
+    Mockito.when(kafkaTemplate.send(TOPIC_KAFKA, jsonExpected))
+        .thenThrow(new RuntimeException(new InterruptedException()));
+    Assertions.assertThrows(
+        ErrorSendTopicKafkaException.class, () -> kafkaProvider.sendTopic(invoicePlardExpected));
+    verify(kafkaTemplate, Mockito.times(1)).send(TOPIC_KAFKA, jsonExpected);
+  }
+
+  @Test
+  void sendTopicKafkaExceptionAsync() {
+    CompletableFuture<SendResult<String, String>> result = mockCompletableFutureException();
+    Mockito.when(kafkaTemplate.send(TOPIC_KAFKA, jsonExpected)).thenReturn(result);
+    Assertions.assertDoesNotThrow(() -> kafkaProvider.sendTopic(invoicePlardExpected));
+    verify(kafkaTemplate, Mockito.times(1)).send(TOPIC_KAFKA, jsonExpected);
+  }
+
+  @Test
+  void sendTopicJsonProcessingException() throws JsonProcessingException {
+    Mockito.when(objectMapper.writeValueAsString(invoicePlardExpected))
+        .thenThrow(JsonProcessingException.class);
+    Assertions.assertThrows(
+        ErrorSendTopicKafkaException.class, () -> kafkaProvider.sendTopic(invoicePlardExpected));
+    verify(kafkaTemplate, Mockito.never()).send(TOPIC_KAFKA, jsonExpected);
+  }
+
+  private CompletableFuture<SendResult<String, String>> mockCompletableFutureException() {
+    return CompletableFuture.failedFuture(new KafkaException("Error to send kafka message"));
+  }
+
+
+primeiro teste 
+
+
+import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import org.apache.commons.io.FileUtils;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.kafka.KafkaException;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.util.ResourceUtils;
+import org.springframework.util.StringUtils;
+
+@SpringBootTest
+@ActiveProfiles("test")
+class KafkaProviderImplRetryableTest {
+
+  private static final String TOPIC_KAFKA = "topic-example.v1.out";
+
+  @MockBean private KafkaTemplate<String, String> kafkaTemplate;
+
+  @Autowired private KafkaProviderImpl kafkaProvider;
+
+  @Autowired private ObjectMapper objectMapper;
+
+  private String jsonExpected;
+
+  private BilledInvoicePlard invoicePlard;
+
+  @BeforeEach
+  void initialize() throws IOException {
+    File file = ResourceUtils.getFile("src/test/resources/json/billet-invoice-plard.json");
+    jsonExpected = StringUtils.trimAllWhitespace(FileUtils.readFileToString(file));
+    invoicePlard = objectMapper.readValue(jsonExpected, BilledInvoicePlard.class);
+  }
+
+  @Test
+  void sendTopicFiveTimes() {
+    CompletableFuture<SendResult<String, String>> result = mockCompletableFutureException();
+    Mockito.when(kafkaTemplate.send(TOPIC_KAFKA, jsonExpected)).thenReturn(result);
+    Assertions.assertThrows(
+        ErrorSendTopicKafkaException.class, () -> kafkaProvider.sendTopic(invoicePlard));
+    verify(kafkaTemplate, Mockito.times(5)).send(Mockito.any(), Mockito.any());
+  }
+
+  private CompletableFuture<SendResult<String, String>> mockCompletableFutureException() {
+    return CompletableFuture.failedFuture(new KafkaException("Error to send kafka message"));
+  }
+  
+  
+  segundo teste 
+  
+  teste de integração 
+  
+  
+  @ActiveProfiles("test")
+@RunWith(SpringRunner.class)
+@SpringBootTest
+@EmbeddedKafka(
+    partitions = 1,
+    brokerProperties = {"listeners=PLAINTEXT://localhost:9092", "port=9092"})
+class KafkaProviderImplTest {
+
+  @Autowired private KafkaConsumerProviderImpl consumer;
+
+  @Autowired private WebhookApiController webhookApiController;
+
+  @Test
+  @Disabled("Teste desabilitado devido a dependencia do kafka na pipeline")
+  void sendTopic() throws InterruptedException {
+    WebhookRequestDTO webhookRequestDTO = new WebhookRequestDTO();
+    webhookApiController.create(webhookRequestDTO);
+    consumer.getLatch().await(3L, TimeUnit.SECONDS);
+    Assertions.assertEquals(0, consumer.getLatch().getCount());
+  }
+}
