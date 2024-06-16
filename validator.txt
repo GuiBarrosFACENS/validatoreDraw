@@ -293,3 +293,124 @@ class KafkaWriterCustomTest {
     void write() {
     }
 }
+
+
+-----------------
+
+
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.util.concurrent.CountDownLatch;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+@ActiveProfiles("test")
+@SpringBootTest
+@EmbeddedKafka(partitions = 1, topics = {"topic-example.v1.out"})
+class KafkaWriterCustomIntegrationTest {
+
+    @Autowired
+    private KafkaTemplate<String, InvoicePaymentPlard> kafkaTemplate;
+
+    @Autowired
+    private InvoiceCnabBatchProperties properties;
+
+    private KafkaWriterCustom kafkaWriterCustom;
+
+    private CountDownLatch latch = new CountDownLatch(1);
+
+    private InvoicePaymentPlard receivedInvoicePaymentPlard;
+
+    @BeforeEach
+    void setUp() {
+        kafkaWriterCustom = new KafkaWriterCustom(properties, kafkaTemplate);
+    }
+
+    @KafkaListener(topics = "topic-example.v1.out", groupId = "test-group")
+    public void listen(ConsumerRecord<String, InvoicePaymentPlard> record) {
+        receivedInvoicePaymentPlard = record.value();
+        latch.countDown();
+    }
+
+    @Test
+    void write() throws Exception {
+        InvoicePaymentPlard invoicePaymentPlard = new InvoicePaymentPlard();
+        kafkaWriterCustom.write(List.of(invoicePaymentPlard));
+
+        latch.await(10, TimeUnit.SECONDS);
+
+        assertEquals(invoicePaymentPlard, receivedInvoicePaymentPlard);
+    }
+}
+
+----
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
+import org.springframework.util.concurrent.ListenableFuture;
+import org.springframework.util.concurrent.SettableListenableFuture;
+
+import java.util.List;
+
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
+@SpringJUnitConfig
+@ExtendWith({SpringExtension.class, MockitoExtension.class})
+class KafkaWriterCustomTest {
+
+    @Mock
+    private InvoiceCnabBatchProperties properties;
+
+    @Mock
+    private KafkaTemplate<String, InvoicePaymentPlard> kafkaTemplate;
+
+    private KafkaWriterCustom kafkaWriterCustom;
+
+    @BeforeEach
+    void setUp() {
+        Mockito.when(properties.getPlardTopic()).thenReturn("topic-example.v1.out");
+        kafkaWriterCustom = new KafkaWriterCustom(properties, kafkaTemplate);
+    }
+
+    @Test
+    void write() throws Exception {
+        InvoicePaymentPlard invoicePaymentPlard = new InvoicePaymentPlard();
+        List<InvoicePaymentPlard> items = List.of(invoicePaymentPlard);
+
+        // Mock the send method of kafkaTemplate
+        SettableListenableFuture<SendResult<String, InvoicePaymentPlard>> future = new SettableListenableFuture<>();
+        future.set(null);
+        Mockito.when(kafkaTemplate.send(Mockito.any(ProducerRecord.class))).thenReturn(future);
+
+        kafkaWriterCustom.write(items);
+
+        verify(kafkaTemplate, times(1)).send(Mockito.any(ProducerRecord.class));
+    }
+
+    @Test
+    void writeEmptyChunk() throws Exception {
+        List<InvoicePaymentPlard> items = List.of();
+
+        kafkaWriterCustom.write(items);
+
+        verify(kafkaTemplate, times(0)).send(Mockito.any(ProducerRecord.class));
+    }
+}
