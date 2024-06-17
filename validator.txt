@@ -414,3 +414,12 @@ class KafkaWriterCustomTest {
         verify(kafkaTemplate, times(0)).send(Mockito.any(ProducerRecord.class));
     }
 }
+
+---
+
+java.lang.ClassCastException: class java.util.ImmutableCollections$ListN cannot be cast to class org.springframework.batch.item.Chunk (java.util.ImmutableCollections$ListN is in module java.base of loader 'bootstrap'; org.springframework.batch.item.Chunk is in unnamed module of loader 'app')
+
+	at com.santander.mpa.infra.messageprovider.KafkaWriterCustomTest.writeEmptyChunk(KafkaWriterCustomTest.java:65)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
