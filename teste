@@ -107,14 +107,6 @@ class LineMapperImplTest {
  ta dando erro no primeiro teste 
 
 
-C:\dev-tools-santander\jdk\jdk-17.0.10_windows-x64_bin\jdk-17.0.10\bin\java.exe -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\lib\idea_rt.jar=63557:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\bin -Dfile.encoding=UTF-8 @C:\Users\X297629\AppData\Local\Temp\idea_arg_file446479583 com.intellij.rt.junit.JUnitStarter -ideVersion5 -junit5 com.santander.mpa.infra.mapper.LineMapperImplTest
-Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
-Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
-22:13:54.235 [main] INFO com.santander.mpa.infra.mapper.impl.LineMapperImpl -- Processing line: 
-22:13:54.313 [main] INFO com.santander.mpa.infra.mapper.impl.LineMapperImpl -- Processing line: 0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      
-
-
-This test is disabled because some things are missing yet
 
 org.mockito.exceptions.misusing.InvalidUseOfMatchersException: 
 Misplaced or misused argument matcher detected here:
@@ -144,8 +136,6 @@ Mocking methods declared on non-public parent classes is not supported.
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
 
-
-Process finished with exit code -1
 
 
 
