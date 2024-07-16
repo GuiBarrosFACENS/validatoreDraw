@@ -141,4 +141,12 @@ public class InvoicePaymentFileMapperImpl implements InvoicePaymentFileMapper {
   }
 }
 
+erro 
+
+C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\src\test\java\com\santander\mpa\infra\mapper\ItemProcessorCustomServiceTest.java:29:9
+java: constructor ItemProcessorCustomService in class com.santander.mpa.app.service.ItemProcessorCustomService cannot be applied to given types;
+  required: com.santander.mpa.app.mapper.InvoicePaymentFileMapper,com.santander.extractor.utils.ExtractorAdvice
+  found:    com.santander.mpa.app.mapper.impl.InvoicePaymentFileMapperImpl
+  reason: actual and formal argument lists differ in length
+
 
