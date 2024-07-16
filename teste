@@ -167,3 +167,21 @@ ta so faltando testar essas linhas
         }
 
 como teste elas chat
+
+
+
+@Test
+void sendLogsErrorOnException() throws JsonProcessingException {
+    // Mocka o comportamento do kafkaTemplate para lançar uma exceção
+    when(kafkaTemplate.send(mockProducerRecord())).thenThrow(new KafkaException("Kafka send failed"));
+
+    // Aqui, não esperamos que uma exceção seja lançada
+    kafkaProvider.send(invoicePaymentFile);
+
+    // Verifica se o método de envio foi chamado uma vez
+    verify(kafkaTemplate, Mockito.times(1)).send(mockProducerRecord());
+
+    // Aqui você pode capturar o log se estiver usando LogCaptor ou similar
+    // LogCaptor logCaptor = LogCaptor.forClass(KafkaProvider.class);
+    // assertTrue(logCaptor.getErrorLogs().stream().anyMatch(log -> log.contains("Error sending message to Kafka")));
+}
