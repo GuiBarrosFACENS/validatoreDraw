@@ -1,98 +1,39 @@
-import lombok.AllArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
-@Service
-@AllArgsConstructor
-public class LineMapperImpl implements LineMapper {
-
-    private static final Logger logger = LoggerFactory.getLogger(LineMapperImpl.class);
-    private final ExtractorAdvice extractor;
-
-    @Override
-    public InvoicePaymentFileDTO convert(String line) {
-        logger.info("Processing line: {}", line);
-
-        InvoicePaymentFileDTO obj = new InvoicePaymentFileDTO();
-        PositionalFieldProcessor.process(obj, line);
-        ExtractorAdvice.put("data.data.mapAttributes.process", "read file");
-        extractor.execute("telemetria_log_category");
-        return obj;
-    }
-}
-
----
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-
 class LineMapperImplTest {
-  
-  @InjectMocks
-  private  ExtractorAdvice extractor ;
 
-  private final LineMapper lineMapper = new LineMapperImpl(extractor);
-  private String line;
+    @Mock
+    private ExtractorAdvice extractor;
 
-    LineMapperImplTest(ExtractorAdvice extractor) {
-        this.extractor = extractor;
-    }
+    @InjectMocks
+    private LineMapperImpl lineMapper;
+
+    private String line;
 
     @BeforeEach
-  void setUp() {
-    line =
-        "0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      \n";
-  }
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        line =
+            "0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      \n";
+    }
 
-  @Test
-  @Disabled("This test is disabled because some things are missing yet")
-  void convert() {
-    InvoicePaymentFileDTO result = lineMapper.convert(line);
-    assertNotNull(result);
-  }
+    @Test
+    @DisplayName("This test is disabled because some things are missing yet")
+    @Disabled
+    void convert() {
+        InvoicePaymentFileDTO result = lineMapper.convert(line);
+        assertNotNull(result);
+    }
 
-  @Test
-  @DisplayName("Should handle null line")
-  void shouldHandleNullLine() {
-    line = null;
-    assertThrows(NullPointerException.class, () -> lineMapper.convert(line));
-  }
+    @Test
+    @DisplayName("Should handle null line")
+    void shouldHandleNullLine() {
+        line = null;
+        assertThrows(NullPointerException.class, () -> lineMapper.convert(line));
+    }
 
-  @Test
-  @DisplayName("Should handle empty line")
-  void shouldHandleEmptyLine() {
-    line = "";
-    assertThrows(StringIndexOutOfBoundsException.class, () -> lineMapper.convert(line));
-  }
+    @Test
+    @DisplayName("Should handle empty line")
+    void shouldHandleEmptyLine() {
+        line = "";
+        assertThrows(StringIndexOutOfBoundsException.class, () -> lineMapper.convert(line));
+    }
 }
-
------
-
-
-org.junit.jupiter.api.extension.ParameterResolutionException: No ParameterResolver registered for parameter [com.santander.extractor.utils.ExtractorAdvice extractor] in constructor [com.santander.mpa.infra.mapper.LineMapperImplTest(com.santander.extractor.utils.ExtractorAdvice)].
-
-	at java.base/java.util.Optional.orElseGet(Optional.java:364)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-
-
-org.junit.jupiter.api.extension.ParameterResolutionException: No ParameterResolver registered for parameter [com.santander.extractor.utils.ExtractorAdvice extractor] in constructor [com.santander.mpa.infra.mapper.LineMapperImplTest(com.santander.extractor.utils.ExtractorAdvice)].
-
-	at java.base/java.util.Optional.orElseGet(Optional.java:364)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-
-
-org.junit.jupiter.api.extension.ParameterResolutionException: No ParameterResolver registered for parameter [com.santander.extractor.utils.ExtractorAdvice extractor] in constructor [com.santander.mpa.infra.mapper.LineMapperImplTest(com.santander.extractor.utils.ExtractorAdvice)].
-
-	at java.base/java.util.Optional.orElseGet(Optional.java:364)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-
-
-Process finished with exit code -1
-
