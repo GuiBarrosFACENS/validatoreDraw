@@ -1,187 +1,80 @@
-package com.santander.mpa.infra.messageprovider;
+C:\dev-tools-santander\jdk\jdk-17.0.10_windows-x64_bin\jdk-17.0.10\bin\java.exe -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\lib\idea_rt.jar=52832:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\bin -Dfile.encoding=UTF-8 @C:\Users\X297629\AppData\Local\Temp\idea_arg_file42845857 com.intellij.rt.junit.JUnitStarter -ideVersion5 -junit5 com.santander.mpa.infra.messageprovider.KafkaProviderTest,sendLogsErrorOnException
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+23:28:44.805 [main] ERROR com.santander.mpa.infra.messageprovider.KafkaProvider -- Error sending message to Kafka
+org.springframework.kafka.KafkaException: Kafka send failed
+	at org.springframework.kafka.core.KafkaTemplate.send(KafkaTemplate.java:576)
+	at com.santander.mpa.infra.messageprovider.KafkaProvider.send(KafkaProvider.java:36)
+	at com.santander.mpa.infra.messageprovider.KafkaProviderTest.sendLogsErrorOnException(KafkaProviderTest.java:82)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at org.junit.platform.commons.util.ReflectionUtils.invokeMethod(ReflectionUtils.java:728)
+	at org.junit.jupiter.engine.execution.MethodInvocation.proceed(MethodInvocation.java:60)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$ValidatingInvocation.proceed(InvocationInterceptorChain.java:131)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.intercept(TimeoutExtension.java:156)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestableMethod(TimeoutExtension.java:147)
+	at org.junit.jupiter.engine.extension.TimeoutExtension.interceptTestMethod(TimeoutExtension.java:86)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker$ReflectiveInterceptorCall.lambda$ofVoidMethod$0(InterceptingExecutableInvoker.java:103)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.lambda$invoke$0(InterceptingExecutableInvoker.java:93)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain$InterceptedInvocation.proceed(InvocationInterceptorChain.java:106)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.proceed(InvocationInterceptorChain.java:64)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.chainAndInvoke(InvocationInterceptorChain.java:45)
+	at org.junit.jupiter.engine.execution.InvocationInterceptorChain.invoke(InvocationInterceptorChain.java:37)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:92)
+	at org.junit.jupiter.engine.execution.InterceptingExecutableInvoker.invoke(InterceptingExecutableInvoker.java:86)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.lambda$invokeTestMethod$7(TestMethodTestDescriptor.java:218)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.invokeTestMethod(TestMethodTestDescriptor.java:214)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:139)
+	at org.junit.jupiter.engine.descriptor.TestMethodTestDescriptor.execute(TestMethodTestDescriptor.java:69)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:151)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.invokeAll(SameThreadHierarchicalTestExecutorService.java:41)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$6(NodeTestTask.java:155)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$8(NodeTestTask.java:141)
+	at org.junit.platform.engine.support.hierarchical.Node.around(Node.java:137)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.lambda$executeRecursively$9(NodeTestTask.java:139)
+	at org.junit.platform.engine.support.hierarchical.ThrowableCollector.execute(ThrowableCollector.java:73)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.executeRecursively(NodeTestTask.java:138)
+	at org.junit.platform.engine.support.hierarchical.NodeTestTask.execute(NodeTestTask.java:95)
+	at org.junit.platform.engine.support.hierarchical.SameThreadHierarchicalTestExecutorService.submit(SameThreadHierarchicalTestExecutorService.java:35)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestExecutor.execute(HierarchicalTestExecutor.java:57)
+	at org.junit.platform.engine.support.hierarchical.HierarchicalTestEngine.execute(HierarchicalTestEngine.java:54)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:198)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:169)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:93)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.lambda$execute$0(EngineExecutionOrchestrator.java:58)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.withInterceptedStreams(EngineExecutionOrchestrator.java:141)
+	at org.junit.platform.launcher.core.EngineExecutionOrchestrator.execute(EngineExecutionOrchestrator.java:57)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:103)
+	at org.junit.platform.launcher.core.DefaultLauncher.execute(DefaultLauncher.java:85)
+	at org.junit.platform.launcher.core.DelegatingLauncher.execute(DelegatingLauncher.java:47)
+	at org.junit.platform.launcher.core.SessionPerRequestLauncher.execute(SessionPerRequestLauncher.java:63)
+	at com.intellij.junit5.JUnit5IdeaTestRunner.startRunnerWithArgs(JUnit5IdeaTestRunner.java:57)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater$1.execute(IdeaTestRunner.java:38)
+	at com.intellij.rt.execution.junit.TestsRepeater.repeat(TestsRepeater.java:11)
+	at com.intellij.rt.junit.IdeaTestRunner$Repeater.startRunnerWithArgs(IdeaTestRunner.java:35)
+	at com.intellij.rt.junit.JUnitStarter.prepareStreamsAndStart(JUnitStarter.java:232)
+	at com.intellij.rt.junit.JUnitStarter.main(JUnitStarter.java:55)
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.santander.extractor.utils.ExtractorAdvice;
-import com.santander.mpa.domain.entity.InvoicePaymentFile;
-import com.santander.mpa.domain.usecase.SendMessageUseCase;
-import lombok.AllArgsConstructor;
-import com.santander.mpa.infra.InvoiceCnabBatchProperties;
-import com.santander.mpa.infra.dto.InvoicePaymentPlardDTO;
-import com.santander.mpa.infra.mapper.InvoicePaymentPlardMapper;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Service;
-
-@Service
-@Slf4j
-@AllArgsConstructor
-public class KafkaProvider implements SendMessageUseCase {
-    private final InvoiceCnabBatchProperties invoiceCnabBatchProperties;
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final InvoicePaymentPlardMapper invoicePaymentPlardMapper;
-    private final ObjectMapper objectMapper;
-    private final ExtractorAdvice extractor;
-
-    @Override
-    public void send(InvoicePaymentFile invoicePaymentFile) {
-
-        InvoicePaymentPlardDTO invoicePaymentPlardDTO =
-                this.invoicePaymentPlardMapper.toPlardDTO(invoicePaymentFile);
-        try {
-            String messageBody = objectMapper.writeValueAsString(invoicePaymentPlardDTO);
-            ProducerRecord<String, String> producerRecord =
-                    new ProducerRecord<>(this.invoiceCnabBatchProperties.getPlardTopic(), messageBody);
-
-            kafkaTemplate.send(producerRecord);
-            ExtractorAdvice.put("data.data.mapAttributes.process", "write in topic x)");
-            extractor.execute("telemetria_log_category");
-        } catch (Exception e) {
-            log.error("Error sending message to Kafka", e);
-        }
-    }
-}
-
---
-
-package com.santander.mpa.infra.messageprovider;
-
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.santander.extractor.utils.ExtractorAdvice;
-import com.santander.mpa.domain.entity.InvoicePaymentFile;
-import com.santander.mpa.infra.InvoiceCnabBatchProperties;
-import com.santander.mpa.infra.config.BatchConfiguration;
-import com.santander.mpa.infra.dto.InvoicePaymentPlardDTO;
-import com.santander.mpa.infra.mapper.InvoicePaymentPlardMapper;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-import org.apache.commons.io.FileUtils;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.TopicPartition;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.KafkaException;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
-import org.springframework.util.ResourceUtils;
-import org.springframework.util.StringUtils;
-
-@ExtendWith(MockitoExtension.class)
-class KafkaProviderTest {
-
-  private static final String TOPIC_KAFKA = "test-topic";
-  private InvoicePaymentPlardDTO invoicePaymentPlardDTO;
-  private KafkaProvider kafkaProvider;
-  private ObjectMapper objectMapper;
-
-  @Mock private KafkaTemplate<String, String> kafkaTemplate;
-
-  @Mock private InvoicePaymentPlardMapper invoicePaymentPlardMapper;
-
-  @Mock private InvoicePaymentFile invoicePaymentFile;
-
-  @Mock private ExtractorAdvice extractor;
-
-  @BeforeEach
-  void setUp() throws IOException {
-    initializeObjectMapper();
-    initializeKafkaProvider();
-    initializeExpectedObjects();
-    when(invoicePaymentPlardMapper.toPlardDTO(invoicePaymentFile))
-        .thenReturn(invoicePaymentPlardDTO);
-  }
-
-  @Test
-  void sendSuccessfully() throws JsonProcessingException {
-    CompletableFuture<SendResult<String, String>> result = mockCompletableFuture();
-    Mockito.when(kafkaTemplate.send(mockProducerRecord())).thenReturn(result);
-    Assertions.assertDoesNotThrow(() -> kafkaProvider.send(invoicePaymentFile));
-    verify(kafkaTemplate, Mockito.times(1)).send(mockProducerRecord());
-  }
-
-  @Test
-  void sendTopicKafkaExceptionAsync() throws JsonProcessingException {
-    CompletableFuture<SendResult<String, String>> result = mockCompletableFutureException();
-    Mockito.when(kafkaTemplate.send(mockProducerRecord())).thenReturn(result);
-    Assertions.assertDoesNotThrow(() -> kafkaProvider.send(invoicePaymentFile));
-    verify(kafkaTemplate, Mockito.times(1)).send(mockProducerRecord());
-  }
-
-  private CompletableFuture<SendResult<String, String>> mockCompletableFuture()
-      throws JsonProcessingException {
-    return CompletableFuture.completedFuture(mockSendResult());
-  }
-
-  private CompletableFuture<SendResult<String, String>> mockCompletableFutureException() {
-    return CompletableFuture.failedFuture(new KafkaException("Error to send kafka message"));
-  }
-
-  private ProducerRecord<String, String> mockProducerRecord() throws JsonProcessingException {
-    String messageBody = objectMapper.writeValueAsString(invoicePaymentPlardDTO);
-    return new ProducerRecord<>(TOPIC_KAFKA, messageBody);
-  }
-
-  private SendResult<String, String> mockSendResult() throws JsonProcessingException {
-    TopicPartition topicPartition = new TopicPartition(TOPIC_KAFKA, 0);
-    RecordMetadata recordMetadata = new RecordMetadata(topicPartition, 0, 0, 0, 0, 0);
-    return new SendResult<>(this.mockProducerRecord(), recordMetadata);
-  }
-
-  private void initializeObjectMapper() {
-    this.objectMapper = new BatchConfiguration().objectMapper();
-  }
-
-  private void initializeExpectedObjects() throws IOException {
-    File file = ResourceUtils.getFile("src/test/resources/json/invoicePaymentPlard.json");
-    String jsonExpected = StringUtils.trimAllWhitespace(FileUtils.readFileToString(file));
-    invoicePaymentPlardDTO = objectMapper.readValue(jsonExpected, InvoicePaymentPlardDTO.class);
-  }
-
-  private void initializeKafkaProvider() {
-    InvoiceCnabBatchProperties invoiceCnabBatchProperties = new InvoiceCnabBatchProperties();
-    invoiceCnabBatchProperties.setPlardTopic(TOPIC_KAFKA);
-    kafkaProvider =
-        new KafkaProvider(
-            invoiceCnabBatchProperties, kafkaTemplate, invoicePaymentPlardMapper, objectMapper, extractor);
-  }
-}
-
----
-
-ta so faltando testar essas linhas 
-
-        } catch (Exception e) {
-            log.error("Error sending message to Kafka", e);
-        }
-
-como teste elas chat
-
-
-
-@Test
-void sendLogsErrorOnException() throws JsonProcessingException {
-    // Mocka o comportamento do kafkaTemplate para lançar uma exceção
-    when(kafkaTemplate.send(mockProducerRecord())).thenThrow(new KafkaException("Kafka send failed"));
-
-    // Aqui, não esperamos que uma exceção seja lançada
-    kafkaProvider.send(invoicePaymentFile);
-
-    // Verifica se o método de envio foi chamado uma vez
-    verify(kafkaTemplate, Mockito.times(1)).send(mockProducerRecord());
-
-    // Aqui você pode capturar o log se estiver usando LogCaptor ou similar
-    // LogCaptor logCaptor = LogCaptor.forClass(KafkaProvider.class);
-    // assertTrue(logCaptor.getErrorLogs().stream().anyMatch(log -> log.contains("Error sending message to Kafka")));
-}
+Process finished with exit code 0
