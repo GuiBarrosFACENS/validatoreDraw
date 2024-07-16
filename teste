@@ -1,14 +1,46 @@
-C:\dev-tools-santander\jdk\jdk-17.0.10_windows-x64_bin\jdk-17.0.10\bin\java.exe -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\lib\idea_rt.jar=64777:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\bin -Dfile.encoding=UTF-8 @C:\Users\X297629\AppData\Local\Temp\idea_arg_file1388765824 com.intellij.rt.junit.JUnitStarter -ideVersion5 -junit5 com.santander.mpa.infra.mapper.ItemProcessorCustomServiceTest,testProcess
-Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
-Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+package com.santander.mpa.infra.mapper;
 
-java.lang.NullPointerException: Cannot invoke "com.santander.extractor.utils.ExtractorAdvice.execute(String)" because "this.extractor" is null
+import static org.junit.jupiter.api.Assertions.*;
 
-	at com.santander.mpa.app.service.ItemProcessorCustomService.process(ItemProcessorCustomService.java:24)
-	at com.santander.mpa.infra.mapper.ItemProcessorCustomServiceTest.testProcess(ItemProcessorCustomServiceTest.java:40)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.app.dto.InvoicePaymentFileDTO;
+import com.santander.mpa.app.mapper.InvoicePaymentFileMapper;
+import com.santander.mpa.app.service.ItemProcessorCustomService;
+import com.santander.mpa.domain.entity.InvoicePaymentFile;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
 
+class ItemProcessorCustomServiceTest {
 
-Process finished with exit code -1
+    @Mock
+    private ExtractorAdvice extractor;
+
+    @Mock
+    private InvoicePaymentFileMapper invoicePaymentFileMapper;
+
+    @InjectMocks
+    private ItemProcessorCustomService itemProcessorCustomService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testProcess() throws Exception {
+        InvoicePaymentFileDTO invoicePaymentFileDTO = Mockito.mock(InvoicePaymentFileDTO.class);
+        InvoicePaymentFile expectedInvoicePaymentFile = new InvoicePaymentFile();
+
+        // Configurando o comportamento do mock
+        Mockito.when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenReturn(expectedInvoicePaymentFile);
+
+        InvoicePaymentFile result = itemProcessorCustomService.process(invoicePaymentFileDTO);
+
+        assertNotNull(result);
+        assertEquals(expectedInvoicePaymentFile, result); // Verifica se o resultado é o esperado
+    }
+}
