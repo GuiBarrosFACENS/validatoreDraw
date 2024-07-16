@@ -12,3 +12,19 @@
         verifyStatic(ExtractorAdvice.class);
         ExtractorAdvice.put("data.data.mapAttributes.process", "read file");
     }
+
+
+--
+
+    @Test
+    @DisplayName("Should process line correctly")
+    void shouldProcessLineCorrectly() {
+        // Act
+        InvoicePaymentFileDTO result = lineMapper.convert(line);
+
+        // Assert
+        assertNotNull(result);
+        verify(extractor).execute("telemetria_log_category");
+        verify(positionalFieldProcessor).process(any(InvoicePaymentFileDTO.class), eq(line));
+        verify(extractor).put(eq("data.data.mapAttributes.process"), eq("read file"));
+    }
