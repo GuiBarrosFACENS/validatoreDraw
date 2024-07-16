@@ -1,48 +1,94 @@
-    @Test
-    @DisplayName("Should process line correctly")
-    void shouldProcessLineCorrectly() {
-        // Act
-        InvoicePaymentFileDTO result = lineMapper.convert(line);
-
-        // Assert
-        assertNotNull(result);
-        verify(extractor).execute("telemetria_log_category");
-        verifyStatic(PositionalFieldProcessor.class);
-        PositionalFieldProcessor.process(result, line);
-        verifyStatic(ExtractorAdvice.class);
-        ExtractorAdvice.put("data.data.mapAttributes.process", "read file");
-    }
+C:\dev-tools-santander\jdk\jdk-17.0.10_windows-x64_bin\jdk-17.0.10\bin\java.exe -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\lib\idea_rt.jar=63241:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\bin -Dfile.encoding=UTF-8 @C:\Users\X297629\AppData\Local\Temp\idea_arg_file1525995008 com.intellij.rt.junit.JUnitStarter -ideVersion5 -junit5 com.santander.mpa.infra.mapper.LineMapperImplTest,shouldProcessLineCorrectly
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+22:05:49.068 [main] INFO com.santander.mpa.infra.mapper.impl.LineMapperImpl -- Processing line: 0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      
 
 
---
+java.lang.NullPointerException: Cannot invoke "Object.getClass()" because "obj" is null
 
-    @Test
-    @DisplayName("Should process line correctly")
-    void shouldProcessLineCorrectly() {
-        // Act
-        InvoicePaymentFileDTO result = lineMapper.convert(line);
-
-        // Assert
-        assertNotNull(result);
-        verify(extractor).execute("telemetria_log_category");
-        verify(positionalFieldProcessor).process(any(InvoicePaymentFileDTO.class), eq(line));
-        verify(extractor).put(eq("data.data.mapAttributes.process"), eq("read file"));
-    }
+	at com.santander.domain.command.PositionalFieldProcessor.process(PositionalFieldProcessor.java:19)
+	at com.santander.mpa.infra.mapper.LineMapperImplTest.shouldProcessLineCorrectly(LineMapperImplTest.java:71)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
 
 
+Process finished with exit code -1
 
-import static org.junit.jupiter.api.Assertions.*;
+
+---------
+
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import com.santander.domain.command.PositionalFieldProcessor;
 import com.santander.extractor.utils.ExtractorAdvice;
-import com.santander.mpa.infra.dto.InvoicePaymentFileDTO;
-import com.santander.mpa.infra.mapper.LineMapperImpl;
-import com.santander.mpa.infra.processor.PositionalFieldProcessor;
+import com.santander.mpa.app.dto.InvoicePaymentFileDTO;
+import com.santander.mpa.infra.mapper.impl.LineMapperImpl;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Disabled;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+
+class LineMapperImplTest {
+
+    @Mock
+    private ExtractorAdvice extractor;
+
+    @Mock
+    private PositionalFieldProcessor positionalFieldProcessor;
+
+    @InjectMocks
+    private LineMapperImpl lineMapper;
+
+    private String line;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        line =
+                "0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      \n";
+    }
+
+    @Test
+    @Disabled("This test is disabled because some things are missing yet")
+    void convert() {
+        InvoicePaymentFileDTO result = lineMapper.convert(line);
+        assertNotNull(result);
+    }
+
+    @Test
+    @DisplayName("Should handle null line")
+    void shouldHandleNullLine() {
+        line = null;
+        assertThrows(NullPointerException.class, () -> lineMapper.convert(line));
+    }
+
+    @Test
+    @DisplayName("Should handle empty line")
+    void shouldHandleEmptyLine() {
+        line = "";
+        assertThrows(StringIndexOutOfBoundsException.class, () -> lineMapper.convert(line));
+    }
+
+    @Test
+    @DisplayName("Should process line correctly")
+    void shouldProcessLineCorrectly() {
+
+        InvoicePaymentFileDTO result = lineMapper.convert(line);
+
+        assertNotNull(result);
+        verify(extractor).execute("telemetria_log_category");
+        verify(positionalFieldProcessor).process(any(InvoicePaymentFileDTO.class), eq(line));
+        ExtractorAdvice.put(eq("data.data.mapAttributes.process"), eq("read file"));
+    }
+
+}
