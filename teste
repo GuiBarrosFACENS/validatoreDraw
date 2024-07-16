@@ -1,3 +1,33 @@
+package com.santander.mpa.app.service;
+
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.app.dto.InvoicePaymentFileDTO;
+import com.santander.mpa.app.mapper.InvoicePaymentFileMapper;
+import com.santander.mpa.domain.entity.InvoicePaymentFile;
+import lombok.AllArgsConstructor;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.batch.item.ItemProcessor;
+import org.springframework.stereotype.Service;
+
+@Service
+@AllArgsConstructor
+public class ItemProcessorCustomService
+    implements ItemProcessor<InvoicePaymentFileDTO, InvoicePaymentFile> {
+
+  private final InvoicePaymentFileMapper invoicePaymentFileMapper;
+  private final ExtractorAdvice extractor;
+
+  @Override
+  public InvoicePaymentFile process(@NotNull InvoicePaymentFileDTO invoicePaymentFileDTO)
+      throws Exception {
+    ExtractorAdvice.put("data.data.mapAttributes.process", "process executed");
+    extractor.execute("telemetria_log_category");
+    return this.invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO);
+  }
+}
+
+---
+
 package com.santander.mpa.infra.mapper;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -16,31 +46,31 @@ import org.mockito.MockitoAnnotations;
 
 class ItemProcessorCustomServiceTest {
 
-    @Mock
-    private ExtractorAdvice extractor;
+  @Mock
+  private ExtractorAdvice extractor;
 
-    @Mock
-    private InvoicePaymentFileMapper invoicePaymentFileMapper;
+  @Mock
+  private InvoicePaymentFileMapper invoicePaymentFileMapper;
 
-    @InjectMocks
-    private ItemProcessorCustomService itemProcessorCustomService;
+  @InjectMocks
+  private ItemProcessorCustomService itemProcessorCustomService;
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
+  @BeforeEach
+  void setUp() {
+    MockitoAnnotations.openMocks(this);
+  }
 
-    @Test
-    void testProcess() throws Exception {
-        InvoicePaymentFileDTO invoicePaymentFileDTO = Mockito.mock(InvoicePaymentFileDTO.class);
-        InvoicePaymentFile expectedInvoicePaymentFile = new InvoicePaymentFile();
+  @Test
+  void testProcess() throws Exception {
+    InvoicePaymentFileDTO invoicePaymentFileDTO = Mockito.mock(InvoicePaymentFileDTO.class);
+    InvoicePaymentFile expectedInvoicePaymentFile = new InvoicePaymentFile();
 
-        // Configurando o comportamento do mock
-        Mockito.when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenReturn(expectedInvoicePaymentFile);
+    // Configurando o comportamento do mock
+    Mockito.when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenReturn(expectedInvoicePaymentFile);
 
-        InvoicePaymentFile result = itemProcessorCustomService.process(invoicePaymentFileDTO);
+    InvoicePaymentFile result = itemProcessorCustomService.process(invoicePaymentFileDTO);
 
-        assertNotNull(result);
-        assertEquals(expectedInvoicePaymentFile, result); // Verifica se o resultado é o esperado
-    }
+    assertNotNull(result);
+    assertEquals(expectedInvoicePaymentFile, result); // Verifica se o resultado é o esperado
+  }
 }
