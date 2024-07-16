@@ -28,3 +28,21 @@
         verify(positionalFieldProcessor).process(any(InvoicePaymentFileDTO.class), eq(line));
         verify(extractor).put(eq("data.data.mapAttributes.process"), eq("read file"));
     }
+
+
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.infra.dto.InvoicePaymentFileDTO;
+import com.santander.mpa.infra.mapper.LineMapperImpl;
+import com.santander.mpa.infra.processor.PositionalFieldProcessor;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
