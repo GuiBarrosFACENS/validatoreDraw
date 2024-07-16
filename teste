@@ -1,76 +1,42 @@
-package com.santander.mpa.app.service;
+    @Test
+    void testProcessCallsExtractor() throws Exception {
+        InvoicePaymentFileDTO invoicePaymentFileDTO = Mockito.mock(InvoicePaymentFileDTO.class);
+        InvoicePaymentFile expectedInvoicePaymentFile = new InvoicePaymentFile();
 
-import com.santander.extractor.utils.ExtractorAdvice;
-import com.santander.mpa.app.dto.InvoicePaymentFileDTO;
-import com.santander.mpa.app.mapper.InvoicePaymentFileMapper;
-import com.santander.mpa.domain.entity.InvoicePaymentFile;
-import lombok.AllArgsConstructor;
-import org.jetbrains.annotations.NotNull;
-import org.springframework.batch.item.ItemProcessor;
-import org.springframework.stereotype.Service;
+        Mockito.when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenReturn(expectedInvoicePaymentFile);
 
-@Service
-@AllArgsConstructor
-public class ItemProcessorCustomService
-    implements ItemProcessor<InvoicePaymentFileDTO, InvoicePaymentFile> {
+        itemProcessorCustomService.process(invoicePaymentFileDTO);
 
-  private final InvoicePaymentFileMapper invoicePaymentFileMapper;
-  private final ExtractorAdvice extractor;
+        // Verifica se o extractor foi chamado corretamente
+        Mockito.verify(extractor).execute("telemetria_log_category");
+    }
 
-  @Override
-  public InvoicePaymentFile process(@NotNull InvoicePaymentFileDTO invoicePaymentFileDTO)
-      throws Exception {
-    ExtractorAdvice.put("data.data.mapAttributes.process", "process executed");
-    extractor.execute("telemetria_log_category");
-    return this.invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO);
-  }
-}
+    @Test
+    void testProcessHandlesException() {
+        InvoicePaymentFileDTO invoicePaymentFileDTO = Mockito.mock(InvoicePaymentFileDTO.class);
 
----
+        // Configurando o mock para lançar uma exceção
+        Mockito.when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenThrow(new RuntimeException("Error"));
 
-package com.santander.mpa.infra.mapper;
+        // Verifica se a exceção é lançada
+        assertThrows(RuntimeException.class, () -> itemProcessorCustomService.process(invoicePaymentFileDTO));
+    }
 
-import static org.junit.jupiter.api.Assertions.*;
+    @Test
+    void testProcessWithNullInput() {
+        assertThrows(NullPointerException.class, () -> itemProcessorCustomService.process(null));
+    }
 
-import com.santander.extractor.utils.ExtractorAdvice;
-import com.santander.mpa.app.dto.InvoicePaymentFileDTO;
-import com.santander.mpa.app.mapper.InvoicePaymentFileMapper;
-import com.santander.mpa.app.service.ItemProcessorCustomService;
-import com.santander.mpa.domain.entity.InvoicePaymentFile;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
+    @Test
+    void testProcessWithValidData() throws Exception {
+        InvoicePaymentFileDTO invoicePaymentFileDTO = new InvoicePaymentFileDTO();
+        // Preencher com dados válidos, se necessário
 
-class ItemProcessorCustomServiceTest {
+        InvoicePaymentFile expectedInvoicePaymentFile = new InvoicePaymentFile();
+        Mockito.when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenReturn(expectedInvoicePaymentFile);
 
-  @Mock
-  private ExtractorAdvice extractor;
+        InvoicePaymentFile result = itemProcessorCustomService.process(invoicePaymentFileDTO);
 
-  @Mock
-  private InvoicePaymentFileMapper invoicePaymentFileMapper;
-
-  @InjectMocks
-  private ItemProcessorCustomService itemProcessorCustomService;
-
-  @BeforeEach
-  void setUp() {
-    MockitoAnnotations.openMocks(this);
-  }
-
-  @Test
-  void testProcess() throws Exception {
-    InvoicePaymentFileDTO invoicePaymentFileDTO = Mockito.mock(InvoicePaymentFileDTO.class);
-    InvoicePaymentFile expectedInvoicePaymentFile = new InvoicePaymentFile();
-
-    // Configurando o comportamento do mock
-    Mockito.when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenReturn(expectedInvoicePaymentFile);
-
-    InvoicePaymentFile result = itemProcessorCustomService.process(invoicePaymentFileDTO);
-
-    assertNotNull(result);
-    assertEquals(expectedInvoicePaymentFile, result); // Verifica se o resultado é o esperado
-  }
-}
+        assertNotNull(result);
+        assertEquals(expectedInvoicePaymentFile, result);
+    }
