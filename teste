@@ -1,39 +1,14 @@
-class LineMapperImplTest {
-
-    @Mock
-    private ExtractorAdvice extractor;
-
-    @InjectMocks
-    private LineMapperImpl lineMapper;
-
-    private String line;
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-        line =
-            "0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      \n";
-    }
-
     @Test
-    @DisplayName("This test is disabled because some things are missing yet")
-    @Disabled
-    void convert() {
+    @DisplayName("Should process line correctly")
+    void shouldProcessLineCorrectly() {
+        // Act
         InvoicePaymentFileDTO result = lineMapper.convert(line);
+
+        // Assert
         assertNotNull(result);
+        verify(extractor).execute("telemetria_log_category");
+        verifyStatic(PositionalFieldProcessor.class);
+        PositionalFieldProcessor.process(result, line);
+        verifyStatic(ExtractorAdvice.class);
+        ExtractorAdvice.put("data.data.mapAttributes.process", "read file");
     }
-
-    @Test
-    @DisplayName("Should handle null line")
-    void shouldHandleNullLine() {
-        line = null;
-        assertThrows(NullPointerException.class, () -> lineMapper.convert(line));
-    }
-
-    @Test
-    @DisplayName("Should handle empty line")
-    void shouldHandleEmptyLine() {
-        line = "";
-        assertThrows(StringIndexOutOfBoundsException.class, () -> lineMapper.convert(line));
-    }
-}
