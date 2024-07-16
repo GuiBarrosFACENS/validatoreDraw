@@ -1,23 +1,36 @@
-C:\dev-tools-santander\jdk\jdk-17.0.10_windows-x64_bin\jdk-17.0.10\bin\java.exe -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\lib\idea_rt.jar=63241:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\bin -Dfile.encoding=UTF-8 @C:\Users\X297629\AppData\Local\Temp\idea_arg_file1525995008 com.intellij.rt.junit.JUnitStarter -ideVersion5 -junit5 com.santander.mpa.infra.mapper.LineMapperImplTest,shouldProcessLineCorrectly
-Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
-Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
-22:05:49.068 [main] INFO com.santander.mpa.infra.mapper.impl.LineMapperImpl -- Processing line: 0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      
+package com.santander.mpa.infra.mapper.impl;
 
+import com.santander.domain.command.PositionalFieldProcessor;
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.app.dto.InvoicePaymentFileDTO;
+import com.santander.mpa.infra.mapper.LineMapper;
+import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
-java.lang.NullPointerException: Cannot invoke "Object.getClass()" because "obj" is null
+@Service
+@AllArgsConstructor
+public class LineMapperImpl implements LineMapper {
 
-	at com.santander.domain.command.PositionalFieldProcessor.process(PositionalFieldProcessor.java:19)
-	at com.santander.mpa.infra.mapper.LineMapperImplTest.shouldProcessLineCorrectly(LineMapperImplTest.java:71)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+    private static final Logger logger = LoggerFactory.getLogger(LineMapperImpl.class);
+    private final ExtractorAdvice extractor;
 
+    @Override
+    public InvoicePaymentFileDTO convert(String line) {
+        logger.info("Processing line: {}", line);
 
-Process finished with exit code -1
+        InvoicePaymentFileDTO obj = new InvoicePaymentFileDTO();
+        PositionalFieldProcessor.process(obj, line);
+        ExtractorAdvice.put("data.data.mapAttributes.process", "read file");
+        extractor.execute("telemetria_log_category");
+        return obj;
+    }
+}
 
+------------
 
----------
-
+package com.santander.mpa.infra.mapper;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,12 +64,12 @@ class LineMapperImplTest {
 
     private String line;
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-        line =
-                "0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      \n";
-    }
+  @BeforeEach
+  void setUp() {
+      MockitoAnnotations.openMocks(this);
+    line =
+        "0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      \n";
+  }
 
     @Test
     @Disabled("This test is disabled because some things are missing yet")
@@ -87,8 +100,52 @@ class LineMapperImplTest {
 
         assertNotNull(result);
         verify(extractor).execute("telemetria_log_category");
-        verify(positionalFieldProcessor).process(any(InvoicePaymentFileDTO.class), eq(line));
         ExtractorAdvice.put(eq("data.data.mapAttributes.process"), eq("read file"));
     }
 
 }
+ ta dando erro no primeiro teste 
+
+
+C:\dev-tools-santander\jdk\jdk-17.0.10_windows-x64_bin\jdk-17.0.10\bin\java.exe -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\lib\idea_rt.jar=63557:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\bin -Dfile.encoding=UTF-8 @C:\Users\X297629\AppData\Local\Temp\idea_arg_file446479583 com.intellij.rt.junit.JUnitStarter -ideVersion5 -junit5 com.santander.mpa.infra.mapper.LineMapperImplTest
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+22:13:54.235 [main] INFO com.santander.mpa.infra.mapper.impl.LineMapperImpl -- Processing line: 
+22:13:54.313 [main] INFO com.santander.mpa.infra.mapper.impl.LineMapperImpl -- Processing line: 0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      
+
+
+This test is disabled because some things are missing yet
+
+org.mockito.exceptions.misusing.InvalidUseOfMatchersException: 
+Misplaced or misused argument matcher detected here:
+
+-> at com.santander.mpa.infra.mapper.LineMapperImplTest.shouldProcessLineCorrectly(LineMapperImplTest.java:71)
+-> at com.santander.mpa.infra.mapper.LineMapperImplTest.shouldProcessLineCorrectly(LineMapperImplTest.java:71)
+
+You cannot use argument matchers outside of verification or stubbing.
+Examples of correct usage of argument matchers:
+    when(mock.get(anyInt())).thenReturn(null);
+    doThrow(new RuntimeException()).when(mock).someVoidMethod(any());
+    verify(mock).someMethod(contains("foo"))
+
+This message may appear after an NullPointerException if the last matcher is returning an object 
+like any() but the stubbed method signature expect a primitive argument, in this case,
+use primitive alternatives.
+    when(mock.get(any())); // bad use, will raise NPE
+    when(mock.get(anyInt())); // correct usage use
+
+Also, this error might show up because you use argument matchers with methods that cannot be mocked.
+Following methods *cannot* be stubbed/verified: final/private/equals()/hashCode().
+Mocking methods declared on non-public parent classes is not supported.
+
+
+	at com.santander.mpa.infra.mapper.LineMapperImplTest.setUp(LineMapperImplTest.java:37)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
+
+Process finished with exit code -1
+
+
+
