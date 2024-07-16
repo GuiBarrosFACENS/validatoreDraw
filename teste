@@ -137,5 +137,17 @@ Mocking methods declared on non-public parent classes is not supported.
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
 
 
+so esse teste quebrou chat
+
+  @Test
+    @DisplayName("Should handle null line")
+    void shouldHandleNullLine() {
+        line = null;
+        assertThrows(NullPointerException.class, () -> lineMapper.convert(line));
+    }
+
+
+como arrumo ? 
+
 
 
