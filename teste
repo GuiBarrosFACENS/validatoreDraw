@@ -1,12 +1,169 @@
-@Test
-void sendThrowsException() throws JsonProcessingException {
-    when(kafkaTemplate.send(mockProducerRecord())).thenThrow(new KafkaException("Kafka send failed"));
+package com.santander.mpa.infra.messageprovider;
 
-    assertDoesNotThrow(() -> kafkaProvider.send(invoicePaymentFile));
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.domain.entity.InvoicePaymentFile;
+import com.santander.mpa.domain.usecase.SendMessageUseCase;
+import lombok.AllArgsConstructor;
+import com.santander.mpa.infra.InvoiceCnabBatchProperties;
+import com.santander.mpa.infra.dto.InvoicePaymentPlardDTO;
+import com.santander.mpa.infra.mapper.InvoicePaymentPlardMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
 
-    verify(kafkaTemplate, Mockito.times(1)).send(mockProducerRecord());
+@Service
+@Slf4j
+@AllArgsConstructor
+public class KafkaProvider implements SendMessageUseCase {
+    private final InvoiceCnabBatchProperties invoiceCnabBatchProperties;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final InvoicePaymentPlardMapper invoicePaymentPlardMapper;
+    private final ObjectMapper objectMapper;
+    private final ExtractorAdvice extractor;
 
-    // Se estiver usando LogCaptor:
-    // LogCaptor logCaptor = LogCaptor.forClass(KafkaProvider.class);
-    // assertTrue(logCaptor.getErrorLogs().stream().anyMatch(log -> log.contains("Error sending message to Kafka")));
+    @Override
+    public void send(InvoicePaymentFile invoicePaymentFile) {
+
+        InvoicePaymentPlardDTO invoicePaymentPlardDTO =
+                this.invoicePaymentPlardMapper.toPlardDTO(invoicePaymentFile);
+        try {
+            String messageBody = objectMapper.writeValueAsString(invoicePaymentPlardDTO);
+            ProducerRecord<String, String> producerRecord =
+                    new ProducerRecord<>(this.invoiceCnabBatchProperties.getPlardTopic(), messageBody);
+
+            kafkaTemplate.send(producerRecord);
+            ExtractorAdvice.put("data.data.mapAttributes.process", "write in topic x)");
+            extractor.execute("telemetria_log_category");
+        } catch (Exception e) {
+            log.error("Error sending message to Kafka", e);
+        }
+    }
 }
+
+--
+
+package com.santander.mpa.infra.messageprovider;
+
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.domain.entity.InvoicePaymentFile;
+import com.santander.mpa.infra.InvoiceCnabBatchProperties;
+import com.santander.mpa.infra.config.BatchConfiguration;
+import com.santander.mpa.infra.dto.InvoicePaymentPlardDTO;
+import com.santander.mpa.infra.mapper.InvoicePaymentPlardMapper;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import org.apache.commons.io.FileUtils;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.KafkaException;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.util.ResourceUtils;
+import org.springframework.util.StringUtils;
+
+@ExtendWith(MockitoExtension.class)
+class KafkaProviderTest {
+
+  private static final String TOPIC_KAFKA = "test-topic";
+  private InvoicePaymentPlardDTO invoicePaymentPlardDTO;
+  private KafkaProvider kafkaProvider;
+  private ObjectMapper objectMapper;
+
+  @Mock private KafkaTemplate<String, String> kafkaTemplate;
+
+  @Mock private InvoicePaymentPlardMapper invoicePaymentPlardMapper;
+
+  @Mock private InvoicePaymentFile invoicePaymentFile;
+
+  @Mock private ExtractorAdvice extractor;
+
+  @BeforeEach
+  void setUp() throws IOException {
+    initializeObjectMapper();
+    initializeKafkaProvider();
+    initializeExpectedObjects();
+    when(invoicePaymentPlardMapper.toPlardDTO(invoicePaymentFile))
+        .thenReturn(invoicePaymentPlardDTO);
+  }
+
+  @Test
+  void sendSuccessfully() throws JsonProcessingException {
+    CompletableFuture<SendResult<String, String>> result = mockCompletableFuture();
+    Mockito.when(kafkaTemplate.send(mockProducerRecord())).thenReturn(result);
+    Assertions.assertDoesNotThrow(() -> kafkaProvider.send(invoicePaymentFile));
+    verify(kafkaTemplate, Mockito.times(1)).send(mockProducerRecord());
+  }
+
+  @Test
+  void sendTopicKafkaExceptionAsync() throws JsonProcessingException {
+    CompletableFuture<SendResult<String, String>> result = mockCompletableFutureException();
+    Mockito.when(kafkaTemplate.send(mockProducerRecord())).thenReturn(result);
+    Assertions.assertDoesNotThrow(() -> kafkaProvider.send(invoicePaymentFile));
+    verify(kafkaTemplate, Mockito.times(1)).send(mockProducerRecord());
+  }
+
+  private CompletableFuture<SendResult<String, String>> mockCompletableFuture()
+      throws JsonProcessingException {
+    return CompletableFuture.completedFuture(mockSendResult());
+  }
+
+  private CompletableFuture<SendResult<String, String>> mockCompletableFutureException() {
+    return CompletableFuture.failedFuture(new KafkaException("Error to send kafka message"));
+  }
+
+  private ProducerRecord<String, String> mockProducerRecord() throws JsonProcessingException {
+    String messageBody = objectMapper.writeValueAsString(invoicePaymentPlardDTO);
+    return new ProducerRecord<>(TOPIC_KAFKA, messageBody);
+  }
+
+  private SendResult<String, String> mockSendResult() throws JsonProcessingException {
+    TopicPartition topicPartition = new TopicPartition(TOPIC_KAFKA, 0);
+    RecordMetadata recordMetadata = new RecordMetadata(topicPartition, 0, 0, 0, 0, 0);
+    return new SendResult<>(this.mockProducerRecord(), recordMetadata);
+  }
+
+  private void initializeObjectMapper() {
+    this.objectMapper = new BatchConfiguration().objectMapper();
+  }
+
+  private void initializeExpectedObjects() throws IOException {
+    File file = ResourceUtils.getFile("src/test/resources/json/invoicePaymentPlard.json");
+    String jsonExpected = StringUtils.trimAllWhitespace(FileUtils.readFileToString(file));
+    invoicePaymentPlardDTO = objectMapper.readValue(jsonExpected, InvoicePaymentPlardDTO.class);
+  }
+
+  private void initializeKafkaProvider() {
+    InvoiceCnabBatchProperties invoiceCnabBatchProperties = new InvoiceCnabBatchProperties();
+    invoiceCnabBatchProperties.setPlardTopic(TOPIC_KAFKA);
+    kafkaProvider =
+        new KafkaProvider(
+            invoiceCnabBatchProperties, kafkaTemplate, invoicePaymentPlardMapper, objectMapper, extractor);
+  }
+}
+
+---
+
+ta so faltando testar essas linhas 
+
+        } catch (Exception e) {
+            log.error("Error sending message to Kafka", e);
+        }
+
+como teste elas chat
