@@ -1,1 +1,109 @@
-Non-resolvable parent POM for com.santander.mpa:sbr-monetar-invoicecnabbatch:0.1.2-SNAPSHOT: The following artifacts could not be resolved: com.santander.ars:gln-back-arsenal-backend-lib-parent:pom:${parent.version} (absent): com.santander.ars:gln-back-arsenal-backend-lib-parent:pom:${parent.version} was not found in http://artifactory.santanderbr.corp/artifactory/maven-public during a previous attempt. This failure was cached in the local repository and resolution is not reattempted until the update interval of jfrog has elapsed or updates are forced and 'parent.relativePath' points at wrong local POM
+[INFO] 
+[INFO] --- spring-boot:3.2.5:run (default-cli) @ sbr-monetar-plardykconciliat ---
+[INFO] Attaching agents: []
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+14:04:24,439 |-INFO in ch.qos.logback.core.joran.spi.ConfigurationWatchList@7a7471ce - URL [jar:file:/C:/Users/X327579/.m2/repository/com/santander/ars/gln-back-arsenal-backend-telemetry-log-starter/3.12.1/gln-back-arsenal-backend-telemetry-log-starter-3.12.1.jar!/logback-spring.xml] is not of type file
+14:04:24,508 |-WARN in ch.qos.logback.core.joran.action.IncludeAction - Could not find resource corresponding to [org/springframework/boot/logging/logback/default.xml]
+14:04:24,511 |-INFO in ch.qos.logback.core.joran.action.ConversionRuleAction - registering conversion word color with class [org.springframework.boot.logging.logback.ColorConverter]
+14:04:24,515 |-INFO in ch.qos.logback.core.joran.action.ConversionRuleAction - registering conversion word color with class [org.springframework.boot.logging.logback.ColorConverter]
+14:04:24,521 |-WARN in IfNestedWithinSecondPhaseElementSC - <if> elements cannot be nested within an <appender>, <logger> or <root> element
+14:04:24,521 |-WARN in IfNestedWithinSecondPhaseElementSC - See also http://logback.qos.ch/codes.html#nested_if_element
+14:04:24,524 |-WARN in IfNestedWithinSecondPhaseElementSC - Element <appender> at line 63 contains a nested <if> element at line 91
+14:04:24,574 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [logToConsole]
+14:04:24,574 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+14:04:24,584 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+14:04:24,616 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to DEBUG
+14:04:24,616 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [logToConsole] to Logger[ROOT]
+14:04:24,616 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@28276e50 - End of configuration.
+14:04:24,616 |-INFO in org.springframework.boot.logging.logback.SpringBootJoranConfigurator@62e70ea3 - Registering current configuration as safe fallback point
+            ss
+           .NMy`
+         .` yMMd.
+        .Ny` sMMm-                                              _
+        :MMh` +MMN:             /\                             | |
+    ./o:`yMMm. /NMmo:.         /  \   _ __ ___  ___ _ __   __ _| |
+ -smMMMm` oMMN: oMMMMMmo.     / /\ \ | '__/ __|/ _ \ '_ \ / _` | |
+sMMMMMMMd. /NMN+oMMMMMMMN+   / ____ \| |  \__ \  __/ | | | (_| | |
+MMMMMMMMMm- :NMMNMMMMMMMMm  /_/    \_\_|  |___/\___|_| |_|\__,_|_| v3.10.0
+yMMMMMMMMMN/ yMMMMMMMMMMMo :: Santander BR :: Cloud Native Java ::
+ :yNMMMMMMMModMMMMMMMMms.  gln-back-arsenal-backend-archetype-base v3.10.0
+   `-+sdmNNNMMNNNdhs+-     Spring Boot 3.2.5 (Java 17.0.7)
+14:04:24.673 [-preinit] INFO       o.h.validator.internal.util.Version  :  :  : HV000001: Hibernate Validator 8.0.1.Final
+14:04:24.784 [    main] INFO      com.santander.mpa.ArsenalApplication  :  :  : Starting ArsenalApplication using Java 17.0.11 with PID 23216 (C:\Users\X327579\OneDrive - Santander Office 365\�rea de Trabalho\sbr-monetar-plardykconciliat\target\classes started by X327579 in C:\Users\X327579\OneDrive - Santander Office 365\�rea de Trabalho\sbr-monetar-plardykconciliat)
+14:04:24.785 [    main] DEBUG     com.santander.mpa.ArsenalApplication  :  :  : Running with Spring Boot v3.2.5, Spring v6.1.6
+14:04:24.786 [    main] INFO      com.santander.mpa.ArsenalApplication  :  :  : The following 1 profile is active: "local"
+jdbc:postgresql://localhost:5432/postgres
+14:04:28.432 [    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : ArsenalPool - Starting...
+14:04:29.103 [    main] INFO         com.zaxxer.hikari.pool.HikariPool  :  :  : ArsenalPool - Added connection org.postgresql.jdbc.PgConnection@5611bba
+14:04:29.109 [    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : ArsenalPool - Start completed.
+14:04:29.461 [    main] INFO   o.hibernate.jpa.internal.util.LogHelper  :  :  : HHH000204: Processing PersistenceUnitInfo [name: default]
+14:04:29.619 [    main] INFO                     org.hibernate.Version  :  :  : HHH000412: Hibernate ORM core version 6.4.4.Final
+14:04:29.711 [    main] INFO     o.h.c.internal.RegionFactoryInitiator  :  :  : HHH000026: Second-level cache disabled
+14:04:30.269 [    main] INFO       o.s.o.j.p.SpringPersistenceUnitInfo  :  :  : No LoadTimeWeaver setup: ignoring JPA class transformer
+14:04:30.370 [    main] WARN             org.hibernate.orm.deprecation  :  :  : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:04:32.075 [    main] INFO        o.h.e.t.j.p.i.JtaPlatformInitiator  :  :  : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:04:32.164 [    main] INFO  j.LocalContainerEntityManagerFactoryBean  :  :  : Initialized JPA EntityManagerFactory for persistence unit 'default'
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+Batata
+fixed
+14:04:33.789 [    main] WARN  ConfigServletWebServerApplicationContext  :  :  : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'processRecive' defined in class path resource [com/santander/mpa/infra/config/BatchConfiguration.class]: Failed to instantiate [org.springframework.batch.core.Step]: Factory method 'processRecive' threw exception with message: Cannot invoke "com.santander.mpa.infra.repository.PlardMetadataRepository.findById(Object)" because "this.plardMetadataRepository" is null
+14:04:33.789 [    main] INFO  j.LocalContainerEntityManagerFactoryBean  :  :  : Closing JPA EntityManagerFactory for persistence unit 'default'
+14:04:33.793 [    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : ArsenalPool - Shutdown initiated...
+14:04:33.794 [    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : ArsenalPool - Shutdown completed.
+14:04:33.853 [    main] ERROR               o.s.boot.SpringApplication  :  :  : Application run failed
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'processRecive' defined in class path resource [com/santander/mpa/infra/config/BatchConfiguration.class]: Failed to instantiate [org.springframework.batch.core.Step]: Factory method 'processRecive' threw exception with message: Cannot invoke "com.santander.mpa.infra.repository.PlardMetadataRepository.findById(Object)" because "this.plardMetadataRepository" is null
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:648)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:485)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1335)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1165)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:562)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:975)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:962)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:334)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1343)
+	at com.santander.mpa.ArsenalApplication.main(ArsenalApplication.java:18)
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.batch.core.Step]: Factory method 'processRecive' threw exception with message: Cannot invoke "com.santander.mpa.infra.repository.PlardMetadataRepository.findById(Object)" because "this.plardMetadataRepository" is null
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:177)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:644)
+	... 19 common frames omitted
+Caused by: java.lang.NullPointerException: Cannot invoke "com.santander.mpa.infra.repository.PlardMetadataRepository.findById(Object)" because "this.plardMetadataRepository" is null
+	at com.santander.mpa.app.processor.PlardDatabaseControlProcessor.verifyPlardItemInDB(PlardDatabaseControlProcessor.java:11)
+	at com.santander.mpa.domain.usecase.impl.ProcessReceiverUserCaseImpl.processReciveDataPlard(ProcessReceiverUserCaseImpl.java:16)
+	at com.santander.mpa.infra.config.BatchConfiguration.processRecive(BatchConfiguration.java:41)
+	at com.santander.mpa.infra.config.BatchConfiguration$$SpringCGLIB$$0.CGLIB$processRecive$0(<generated>)
+	at com.santander.mpa.infra.config.BatchConfiguration$$SpringCGLIB$$FastClass$$1.invoke(<generated>)
+	at org.springframework.cglib.proxy.MethodProxy.invokeSuper(MethodProxy.java:258)
+	at org.springframework.context.annotation.ConfigurationClassEnhancer$BeanMethodInterceptor.intercept(ConfigurationClassEnhancer.java:331)
+	at com.santander.mpa.infra.config.BatchConfiguration$$SpringCGLIB$$0.processRecive(<generated>)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:140)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:644)
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:485)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1335)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1165)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:562)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:522)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:975)
+	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:962)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:624)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:754)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:456)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:334)
