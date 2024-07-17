@@ -170,4 +170,19 @@ public class BatchConfiguration {
 }
 
 
+--
+
+private final ProcessReceiverUserCaseImpl processReciverUserCase;
+
+  @Autowired
+  public BatchConfiguration(ProcessReceiverUserCaseImpl processReciverUserCase) {
+    this.processReciverUserCase = processReciverUserCase;
+  }
+
+  @Bean
+  public ProcessReceiverUserCaseImpl processReceiverUserCaseImpl(
+      PlardDatabaseControlProcessorImpl plardDatabaseControlProcessorImpl) {
+    return new ProcessReceiverUserCaseImpl(plardDatabaseControlProcessorImpl);
+  }
+
 
