@@ -1,1 +1,62 @@
 
+[INFO] 
+[INFO] --- spring-boot:3.2.5:run (default-cli) @ sbr-monetar-plardykconciliat ---
+[INFO] Attaching agents: []
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+14:56:52,628 |-INFO in ch.qos.logback.core.joran.spi.ConfigurationWatchList@7a7471ce - URL [jar:file:/C:/Users/X327579/.m2/repository/com/santander/ars/gln-back-arsenal-backend-telemetry-log-starter/3.12.1/gln-back-arsenal-backend-telemetry-log-starter-3.12.1.jar!/logback-spring.xml] is not of type file
+14:56:52,690 |-WARN in ch.qos.logback.core.joran.action.IncludeAction - Could not find resource corresponding to [org/springframework/boot/logging/logback/default.xml]
+14:56:52,693 |-INFO in ch.qos.logback.core.joran.action.ConversionRuleAction - registering conversion word color with class [org.springframework.boot.logging.logback.ColorConverter]
+14:56:52,697 |-INFO in ch.qos.logback.core.joran.action.ConversionRuleAction - registering conversion word color with class [org.springframework.boot.logging.logback.ColorConverter]
+14:56:52,702 |-WARN in IfNestedWithinSecondPhaseElementSC - <if> elements cannot be nested within an <appender>, <logger> or <root> element
+14:56:52,702 |-WARN in IfNestedWithinSecondPhaseElementSC - See also http://logback.qos.ch/codes.html#nested_if_element
+14:56:52,704 |-WARN in IfNestedWithinSecondPhaseElementSC - Element <appender> at line 63 contains a nested <if> element at line 91
+14:56:52,748 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - Processing appender named [logToConsole]
+14:56:52,748 |-INFO in ch.qos.logback.core.model.processor.AppenderModelHandler - About to instantiate appender of type [ch.qos.logback.core.ConsoleAppender]
+14:56:52,753 |-INFO in ch.qos.logback.core.model.processor.ImplicitModelHandler - Assuming default type [ch.qos.logback.classic.encoder.PatternLayoutEncoder] for [encoder] property
+14:56:52,780 |-INFO in ch.qos.logback.classic.model.processor.RootLoggerModelHandler - Setting level of ROOT logger to DEBUG
+14:56:52,781 |-INFO in ch.qos.logback.core.model.processor.AppenderRefModelHandler - Attaching appender named [logToConsole] to Logger[ROOT]
+14:56:52,781 |-INFO in ch.qos.logback.core.model.processor.DefaultProcessor@28276e50 - End of configuration.
+14:56:52,781 |-INFO in org.springframework.boot.logging.logback.SpringBootJoranConfigurator@62e70ea3 - Registering current configuration as safe fallback point
+            ss
+           .NMy`
+         .` yMMd.
+        .Ny` sMMm-                                              _
+        :MMh` +MMN:             /\                             | |
+    ./o:`yMMm. /NMmo:.         /  \   _ __ ___  ___ _ __   __ _| |
+ -smMMMm` oMMN: oMMMMMmo.     / /\ \ | '__/ __|/ _ \ '_ \ / _` | |
+sMMMMMMMd. /NMN+oMMMMMMMN+   / ____ \| |  \__ \  __/ | | | (_| | |
+MMMMMMMMMm- :NMMNMMMMMMMMm  /_/    \_\_|  |___/\___|_| |_|\__,_|_| v3.10.0
+yMMMMMMMMMN/ yMMMMMMMMMMMo :: Santander BR :: Cloud Native Java ::
+ :yNMMMMMMMModMMMMMMMMms.  gln-back-arsenal-backend-archetype-base v3.10.0
+   `-+sdmNNNMMNNNdhs+-     Spring Boot 3.2.5 (Java 17.0.7)
+14:56:52.830 [-preinit] INFO       o.h.validator.internal.util.Version  :  :  : HV000001: Hibernate Validator 8.0.1.Final
+14:56:52.936 [    main] INFO      com.santander.mpa.ArsenalApplication  :  :  : Starting ArsenalApplication using Java 17.0.11 with PID 5772 (C:\Users\X327579\OneDrive - Santander Office 365\�rea de Trabalho\sbr-monetar-plardykconciliat\target\classes started by X327579 in C:\Users\X327579\OneDrive - Santander Office 365\�rea de Trabalho\sbr-monetar-plardykconciliat)
+14:56:52.936 [    main] DEBUG     com.santander.mpa.ArsenalApplication  :  :  : Running with Spring Boot v3.2.5, Spring v6.1.6
+14:56:52.936 [    main] INFO      com.santander.mpa.ArsenalApplication  :  :  : The following 1 profile is active: "local"
+jdbc:postgresql://localhost:5432/postgres
+14:56:55.969 [    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : ArsenalPool - Starting...
+14:56:56.458 [    main] INFO         com.zaxxer.hikari.pool.HikariPool  :  :  : ArsenalPool - Added connection org.postgresql.jdbc.PgConnection@15f861ee
+14:56:56.460 [    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : ArsenalPool - Start completed.
+14:56:56.696 [    main] INFO   o.hibernate.jpa.internal.util.LogHelper  :  :  : HHH000204: Processing PersistenceUnitInfo [name: default]
+14:56:56.764 [    main] INFO                     org.hibernate.Version  :  :  : HHH000412: Hibernate ORM core version 6.4.4.Final
+14:56:56.805 [    main] INFO     o.h.c.internal.RegionFactoryInitiator  :  :  : HHH000026: Second-level cache disabled
+14:56:57.168 [    main] INFO       o.s.o.j.p.SpringPersistenceUnitInfo  :  :  : No LoadTimeWeaver setup: ignoring JPA class transformer
+14:56:57.237 [    main] WARN             org.hibernate.orm.deprecation  :  :  : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+14:56:59.628 [    main] INFO        o.h.e.t.j.p.i.JtaPlatformInitiator  :  :  : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+14:56:59.749 [    main] INFO  j.LocalContainerEntityManagerFactoryBean  :  :  : Initialized JPA EntityManagerFactory for persistence unit 'default'
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+14:57:03.360 [    main] WARN  ConfigServletWebServerApplicationContext  :  :  : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'batchConfiguration': Unsatisfied dependency expressed through field 'processReciverUserCase': Error creating bean with name 'batchConfiguration': Requested bean is currently in creation: Is there an unresolvable circular reference?
+14:57:03.361 [    main] INFO  j.LocalContainerEntityManagerFactoryBean  :  :  : Closing JPA EntityManagerFactory for persistence unit 'default'
+14:57:03.368 [    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : ArsenalPool - Shutdown initiated...
+14:57:03.371 [    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : ArsenalPool - Shutdown completed.
+14:57:03.481 [    main] ERROR   o.s.b.d.LoggingFailureAnalysisReporter  :  :  : 
+***************************
+APPLICATION FAILED TO START
+***************************
+Description:
+The dependencies of some of the beans in the application context form a cycle:
+???->???
+|  batchConfiguration (field com.santander.mpa.domain.usecase.impl.ProcessReceiverUserCaseImpl com.santander.mpa.infra.config.BatchConfiguration.processReciverUserCase)
+???<-???
+Action:
+Relying upon circular references is discouraged and they are prohibited by default. Update your application to remove the dependency cycle between beans. As a last resort, it may be possible to break the cycle automatically by setting spring.main.allow-circular-references to true.
