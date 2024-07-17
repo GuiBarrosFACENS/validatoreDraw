@@ -60,3 +60,114 @@ The dependencies of some of the beans in the application context form a cycle:
 ???<-???
 Action:
 Relying upon circular references is discouraged and they are prohibited by default. Update your application to remove the dependency cycle between beans. As a last resort, it may be possible to break the cycle automatically by setting spring.main.allow-circular-references to true.
+
+
+
+package com.santander.mpa.domain.usecase.impl;
+
+import com.santander.mpa.domain.usecase.PlardDatabaseControlProcessor;
+import com.santander.mpa.domain.usecase.ProcessReciverUserCase;
+import com.santander.mpa.infra.dto.PlardMetadataDto;
+import java.time.LocalDate;
+
+public class ProcessReceiverUserCaseImpl implements ProcessReciverUserCase {
+
+  private PlardDatabaseControlProcessor plardDatabaseControlProcessor;
+
+  public ProcessReceiverUserCaseImpl(PlardDatabaseControlProcessor plardDatabaseControlProcessor) {
+    this.plardDatabaseControlProcessor = plardDatabaseControlProcessor;
+  }
+
+  @Override
+  public void processReciveDataPlard(PlardMetadataDto plardMetadataDto) {
+
+    boolean existPlardItemInDB =
+        plardDatabaseControlProcessor.verifyPlardItemInDB(plardMetadataDto);
+
+    if (existPlardItemInDB) {
+      plardMetadataDto.setStatus("processing".toUpperCase());
+      plardMetadataDto.setOgigin(plardMetadataDto.getOgigin());
+      plardMetadataDto.setCreatedAt(LocalDate.now());
+      plardMetadataDto.setPaymentMethod(plardMetadataDto.getPaymentMethod());
+    }
+
+    plardDatabaseControlProcessor.saveInDatabase(plardMetadataDto);
+  }
+}
+
+
+----
+
+
+ackage com.santander.mpa.infra.config;
+
+import com.santander.mpa.app.processor.PlardDatabaseControlProcessorImpl;
+import com.santander.mpa.domain.usecase.impl.ProcessReceiverUserCaseImpl;
+import com.santander.mpa.infra.dto.PlardMetadataDto;
+import java.time.LocalDate;
+import lombok.extern.java.Log;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.Step;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
+
+@Configuration
+@Slf4j
+@Log
+@ComponentScan(basePackages = "com.santander.mpa")
+public class BatchConfiguration {
+  @Autowired ProcessReceiverUserCaseImpl processReciverUserCase;
+
+  /**
+   * TODO: PONTOs DE ATENÇÃO Qual será nossa chave forte?? SERÁ ESSA A ESTRUTURA??
+   * https://confluence.santanderbr.corp/display/INPLCPC1/BPMN+-+Pagamento+de+Fatura
+   */
+  @Bean
+  public ProcessReceiverUserCaseImpl processReceiverUserCaseImpl(
+      PlardDatabaseControlProcessorImpl plardDatabaseControlProcessorImpl) {
+    return new ProcessReceiverUserCaseImpl(plardDatabaseControlProcessorImpl);
+  }
+
+  @Bean
+  public Step processRecive() {
+
+    System.out.println("Batata");
+
+    // TODO: Carregar dados do Kafka
+    // TODO: IMPLEMENT KAFKA RECIVER
+    PlardMetadataDto plardMetadataRecived = new PlardMetadataDto();
+
+    plardMetadataRecived.setIdMetadados(1L);
+    System.out.println("fixed");
+
+    plardMetadataRecived.setResolution("DADOS RESOLUCAO");
+    plardMetadataRecived.setCreatedAt(LocalDate.now());
+    plardMetadataRecived.setUpdatedDate(LocalDate.now());
+
+    processReciverUserCase.processReciveDataPlard(plardMetadataRecived);
+
+    return null;
+  }
+
+  //  @Bean
+  //  public Step processReturn() {
+  //
+  //    // TODO: IMPLEMENT KAFKA RECIVER
+  //    PlardMetadataDto plardMetadataReturned = new PlardMetadataDto();
+  //
+  //    plardMetadataReturned.setResolution("DADOS RESOLUCAO");
+  //    plardMetadataReturned.setCreatedAt(LocalDate.now());
+  //    plardMetadataReturned.setUpdatedDate(LocalDate.now());
+  //
+  //    new ProcessReturnUserCaseImpl()
+  //        .processReturnDataPlard(new PlardMetadaMapperImpl().toEntity(plardMetadataReturned));
+  //
+  //    return null;
+  //  }
+}
+
+
+
