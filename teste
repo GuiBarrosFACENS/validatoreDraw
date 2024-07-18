@@ -1,1 +1,21 @@
 
+Description:
+
+The dependencies of some of the beans in the application context form a cycle:
+
+   kafkaWriterCustomService defined in file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\target\classes\com\santander\mpa\app\service\KafkaWriterCustomService.class]
+      ↓
+   kafkaProvider defined in file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\target\classes\com\santander\mpa\infra\messageprovider\KafkaProvider.class]
+      ↓
+   invoicePaymentPlardMapperImpl defined in file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\target\classes\com\santander\mpa\infra\mapper\impl\InvoicePaymentPlardMapperImpl.class]
+┌─────┐
+|  batchConfiguration defined in file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\target\classes\com\santander\mpa\infra\config\BatchConfiguration.class]
+└─────┘
+
+
+Action:
+
+Relying upon circular references is discouraged and they are prohibited by default. Update your application to remove the dependency cycle between beans. As a last resort, it may be possible to break the cycle automatically by setting spring.main.allow-circular-references to true.
+
+
+Process finished with exit code 1
