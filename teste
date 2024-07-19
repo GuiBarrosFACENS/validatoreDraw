@@ -1,59 +1,43 @@
-import com.santander.mpa.domain.usecase.PlardDatabaseControlProcessor;
-import com.santander.mpa.domain.usecase.ProcessReciverUserCase;
-import com.santander.mpa.infra.dto.PlardMetadataDTO;
-
-import java.time.LocalDate;
-
-public class ProcessReceiverUserCaseImpl implements ProcessReciverUserCase {
-
-    private final PlardDatabaseControlProcessor plardDatabaseControlProcessor;
-
-    public ProcessReceiverUserCaseImpl(PlardDatabaseControlProcessor plardDatabaseControlProcessor) {
-        this.plardDatabaseControlProcessor = plardDatabaseControlProcessor;
-    }
-
-    @Override
-    public void processReciveDataPlard(PlardMetadataDTO plardMetadataDto) {
-
-        boolean existPlardItemInDB = plardDatabaseControlProcessor.verifyPlardItemInDB(plardMetadataDto);
-
-        if (existPlardItemInDB) {
-            plardMetadataDto.setStatus("processing".toUpperCase());
-            plardMetadataDto.setOgigin(plardMetadataDto.getOgigin());
-            plardMetadataDto.setCreatedAt(LocalDate.now());
-            plardMetadataDto.setPaymentMethod(plardMetadataDto.getPaymentMethod());
-        } else {
-            plardMetadataDto.setStatus("ERRO");
-            plardDatabaseControlProcessor.saveInDatabase(plardMetadataDto);
-        }
-
-
-    }
-}
-
-----
-
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-class ProcessReceiverUserCaseImplTest {
-
-    @Test
-    void processReciveDataPlard() {
-
-    }
+    private PlardDatabaseControlProcessor plardDatabaseControlProcessor;
+    private ProcessReceiverUserCaseImpl processReceiverUserCase;
 
     @BeforeEach
     void setUp() {
+        plardDatabaseControlProcessor = mock(PlardDatabaseControlProcessor.class);
+        processReceiverUserCase = new ProcessReceiverUserCaseImpl(plardDatabaseControlProcessor);
     }
 
-    @AfterEach
-    void tearDown() {
+    @Test
+    void processReciveDataPlard_existsInDB() {
+        PlardMetadataDTO plardMetadataDto = new PlardMetadataDTO();
+        plardMetadataDto.setOgigin("testOrigin");
+        plardMetadataDto.setPaymentMethod("testPaymentMethod");
+
+        when(plardDatabaseControlProcessor.verifyPlardItemInDB(plardMetadataDto)).thenReturn(true);
+
+        processReceiverUserCase.processReciveDataPlard(plardMetadataDto);
+
+        assertEquals("PROCESSING", plardMetadataDto.getStatus());
+        assertEquals("testOrigin", plardMetadataDto.getOgigin());
+        assertEquals(LocalDate.now(), plardMetadataDto.getCreatedAt());
+        assertEquals("testPaymentMethod", plardMetadataDto.getPaymentMethod());
+
+        verify(plardDatabaseControlProcessor, times(1)).verifyPlardItemInDB(plardMetadataDto);
+        verify(plardDatabaseControlProcessor, never()).saveInDatabase(plardMetadataDto);
     }
-}
 
+    @Test
+    void processReciveDataPlard_doesNotExistInDB() {
+        PlardMetadataDTO plardMetadataDto = new PlardMetadataDTO();
+        plardMetadataDto.setOgigin("testOrigin");
+        plardMetadataDto.setPaymentMethod("testPaymentMethod");
 
+        when(plardDatabaseControlProcessor.verifyPlardItemInDB(plardMetadataDto)).thenReturn(false);
+
+        processReceiverUserCase.processReciveDataPlard(plardMetadataDto);
+
+        assertEquals("ERRO", plardMetadataDto.getStatus());
+
+        verify(plardDatabaseControlProcessor, times(1)).verifyPlardItemInDB(plardMetadataDto);
+        verify(plardDatabaseControlProcessor, times(1)).saveInDatabase(plardMetadataDto);
+    }
