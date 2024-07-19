@@ -1,36 +1,60 @@
-package com.santander.mpa.domain.usecase.impl;
-
 import com.santander.mpa.app.processor.PlardDatabaseControlProcessorImpl;
-import com.santander.mpa.domain.entity.PlardMetadata;
-import com.santander.mpa.domain.usecase.ProcessReturnUserCase;
 import com.santander.mpa.infra.dto.PlardMetadataDTO;
-import com.santander.mpa.infra.mapper.impl.PlardMetadaMapperImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-public class ProcessReturnUserCaseImpl implements ProcessReturnUserCase {
+import static org.mockito.Mockito.*;
+
+class ProcessReturnUserCaseImplTest {
 
     private PlardDatabaseControlProcessorImpl plardDatabaseControlProcessorImpl;
+    private ProcessReturnUserCaseImpl processReturnUserCase;
 
-    public ProcessReturnUserCaseImpl(PlardDatabaseControlProcessorImpl plardDatabaseControlProcessorImpl) {
-        this.plardDatabaseControlProcessorImpl = plardDatabaseControlProcessorImpl;
+    @BeforeEach
+    void setUp() {
+        plardDatabaseControlProcessorImpl = mock(PlardDatabaseControlProcessorImpl.class);
+        processReturnUserCase = new ProcessReturnUserCaseImpl(plardDatabaseControlProcessorImpl);
     }
 
-    @Override
-    public void processReturnDataPlard(PlardMetadataDTO plardMetadataDTO) {
-        PlardMetadaMapperImpl plardMetadaMapper = new PlardMetadaMapperImpl();
-        String plardMetadataStatus = plardMetadataDTO.getStatus();
+    @Test
+    void processReturnDataPlard_reproved() {
+        PlardMetadataDTO plardMetadataDTO = new PlardMetadataDTO();
+        plardMetadataDTO.setStatus("REPROVED");
 
-        if (plardMetadataStatus.equals("REPROVED")) {
-            plardMetadataDTO.setStatus("CLOSED");
-            plardMetadataDTO.setResolution("REPROVED");
-            plardMetadataDTO.setReason("<MOTIVO A DEFINIR>");
-        }
+        processReturnUserCase.processReturnDataPlard(plardMetadataDTO);
 
-        if (plardMetadataStatus.equals("APROVED")) {
-            plardMetadataDTO.setStatus("CLOSED");
-            plardMetadataDTO.setResolution("EXECUTED");
-            plardMetadataDTO.setResolution("EXECUTED");
-        }
+        assertEquals("CLOSED", plardMetadataDTO.getStatus());
+        assertEquals("REPROVED", plardMetadataDTO.getResolution());
+        assertEquals("<MOTIVO A DEFINIR>", plardMetadataDTO.getReason());
 
-        plardDatabaseControlProcessorImpl.saveInDatabase(plardMetadataDTO);
+        verify(plardDatabaseControlProcessorImpl, times(1)).saveInDatabase(plardMetadataDTO);
+    }
+
+    @Test
+    void processReturnDataPlard_aproved() {
+        PlardMetadataDTO plardMetadataDTO = new PlardMetadataDTO();
+        plardMetadataDTO.setStatus("APROVED");
+
+        processReturnUserCase.processReturnDataPlard(plardMetadataDTO);
+
+        assertEquals("CLOSED", plardMetadataDTO.getStatus());
+        assertEquals("EXECUTED", plardMetadataDTO.getResolution());
+
+        verify(plardDatabaseControlProcessorImpl, times(1)).saveInDatabase(plardMetadataDTO);
+    }
+
+    @Test
+    void processReturnDataPlard_otherStatus() {
+        PlardMetadataDTO plardMetadataDTO = new PlardMetadataDTO();
+        plardMetadataDTO.setStatus("OTHER");
+
+        processReturnUserCase.processReturnDataPlard(plardMetadataDTO);
+
+        assertEquals("OTHER", plardMetadataDTO.getStatus());
+        assertNull(plardMetadataDTO.getResolution());
+        assertNull(plardMetadataDTO.getReason());
+
+        verify(plardDatabaseControlProcessorImpl, times(1)).saveInDatabase(plardMetadataDTO);
     }
 }
