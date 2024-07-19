@@ -1,1 +1,59 @@
+import com.santander.mpa.domain.usecase.PlardDatabaseControlProcessor;
+import com.santander.mpa.domain.usecase.ProcessReciverUserCase;
+import com.santander.mpa.infra.dto.PlardMetadataDTO;
+
+import java.time.LocalDate;
+
+public class ProcessReceiverUserCaseImpl implements ProcessReciverUserCase {
+
+    private final PlardDatabaseControlProcessor plardDatabaseControlProcessor;
+
+    public ProcessReceiverUserCaseImpl(PlardDatabaseControlProcessor plardDatabaseControlProcessor) {
+        this.plardDatabaseControlProcessor = plardDatabaseControlProcessor;
+    }
+
+    @Override
+    public void processReciveDataPlard(PlardMetadataDTO plardMetadataDto) {
+
+        boolean existPlardItemInDB = plardDatabaseControlProcessor.verifyPlardItemInDB(plardMetadataDto);
+
+        if (existPlardItemInDB) {
+            plardMetadataDto.setStatus("processing".toUpperCase());
+            plardMetadataDto.setOgigin(plardMetadataDto.getOgigin());
+            plardMetadataDto.setCreatedAt(LocalDate.now());
+            plardMetadataDto.setPaymentMethod(plardMetadataDto.getPaymentMethod());
+        } else {
+            plardMetadataDto.setStatus("ERRO");
+            plardDatabaseControlProcessor.saveInDatabase(plardMetadataDto);
+        }
+
+
+    }
+}
+
+----
+
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class ProcessReceiverUserCaseImplTest {
+
+    @Test
+    void processReciveDataPlard() {
+
+    }
+
+    @BeforeEach
+    void setUp() {
+    }
+
+    @AfterEach
+    void tearDown() {
+    }
+}
+
 
