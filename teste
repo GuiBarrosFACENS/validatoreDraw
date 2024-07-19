@@ -1,22 +1,57 @@
-package com.santander.mpa.app.processor;
-
-import com.santander.mpa.domain.usecase.PlardDatabaseControlProcessor;
 import com.santander.mpa.infra.dto.PlardMetadataDTO;
 import com.santander.mpa.infra.repository.PlardMetadataRepository;
-import lombok.AllArgsConstructor;
-import org.springframework.stereotype.Service;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-@Service
-@AllArgsConstructor
-public class PlardDatabaseControlProcessorImpl implements PlardDatabaseControlProcessor {
+import java.util.Optional;
 
-  private PlardMetadataRepository plardMetadataRepository;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-  public boolean verifyPlardItemInDB(PlardMetadataDTO plardMetadataDto) {
-    return !plardMetadataRepository.findById(plardMetadataDto.getIdMetadados()).isEmpty();
-  }
+class PlardDatabaseControlProcessorImplTest {
 
-  public void saveInDatabase(PlardMetadataDTO plardMetadataDto) {
-    plardMetadataRepository.save(plardMetadataDto);
-  }
+    private PlardMetadataRepository plardMetadataRepository;
+    private PlardDatabaseControlProcessorImpl plardDatabaseControlProcessor;
+
+    @BeforeEach
+    void setUp() {
+        plardMetadataRepository = mock(PlardMetadataRepository.class);
+        plardDatabaseControlProcessor = new PlardDatabaseControlProcessorImpl(plardMetadataRepository);
+    }
+
+    @Test
+    void verifyPlardItemInDB_exists() {
+        PlardMetadataDTO plardMetadataDTO = new PlardMetadataDTO();
+        plardMetadataDTO.setIdMetadados(1L);
+
+        when(plardMetadataRepository.findById(1L)).thenReturn(Optional.of(new PlardMetadataDTO()));
+
+        boolean result = plardDatabaseControlProcessor.verifyPlardItemInDB(plardMetadataDTO);
+
+        assertTrue(result);
+        verify(plardMetadataRepository, times(1)).findById(1L);
+    }
+
+    @Test
+    void verifyPlardItemInDB_doesNotExist() {
+        PlardMetadataDTO plardMetadataDTO = new PlardMetadataDTO();
+        plardMetadataDTO.setIdMetadados(1L);
+
+        when(plardMetadataRepository.findById(1L)).thenReturn(Optional.empty());
+
+        boolean result = plardDatabaseControlProcessor.verifyPlardItemInDB(plardMetadataDTO);
+
+        assertFalse(result);
+        verify(plardMetadataRepository, times(1)).findById(1L);
+    }
+
+    @Test
+    void saveInDatabase() {
+        PlardMetadataDTO plardMetadataDTO = new PlardMetadataDTO();
+
+        plardDatabaseControlProcessor.saveInDatabase(plardMetadataDTO);
+
+        verify(plardMetadataRepository, times(1)).save(plardMetadataDTO);
+    }
 }
