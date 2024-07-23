@@ -1,1 +1,37 @@
 
+package com.santander.mpa.infra.config;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.batch.core.*;
+import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+
+@Component
+@EnableScheduling
+public class ScheduleConfiguration {
+
+  private static final Logger logger = LoggerFactory.getLogger(ScheduleConfiguration.class);
+
+  private JobLauncher jobLauncher;
+
+  private Job processJob;
+
+  public ScheduleConfiguration(JobLauncher jobLauncher, Job processJob) {
+    this.jobLauncher = jobLauncher;
+    this.processJob = processJob;
+  }
+
+  @Scheduled(fixedRate = 30000)
+  public void launchJob() throws Exception {
+    LocalDateTime date = LocalDateTime.now();
+    logger.warn("scheduler starts at " + date);
+    JobExecution jobExecution = jobLauncher.run(processJob, new JobParametersBuilder().toJobParameters());
+    logger.debug("Batch job ends with status as " + jobExecution.getStatus());
+  }
+  
+}
