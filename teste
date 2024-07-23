@@ -1,4 +1,77 @@
+Passo 1: Instalar o Kafka e Kafka Connect
+Primeiro, baixe e instale o Apache Kafka:
 
+Baixar o Kafka:
+
+Vá para a página de download do Kafka.
+Baixe a versão desejada (por exemplo, kafka_2.13-2.8.0.tgz).
+Extrair o Kafka:
+
+bash
+Copiar código
+tar -xzf kafka_2.13-2.8.0.tgz
+cd kafka_2.13-2.8.0
+Iniciar o Zookeeper:
+
+bash
+Copiar código
+bin/zookeeper-server-start.sh config/zookeeper.properties
+Iniciar o Kafka:
+Abra outro terminal e execute:
+
+bash
+Copiar código
+bin/kafka-server-start.sh config/server.properties
+Passo 2: Configurar o Kafka Connect
+Criar uma configuração para o Kafka Connect:
+Crie um arquivo chamado connect-standalone.properties com o seguinte conteúdo:
+
+properties
+Copiar código
+bootstrap.servers=localhost:9092
+key.converter=org.apache.kafka.connect.json.JsonConverter
+value.converter=org.apache.kafka.connect.json.JsonConverter
+key.converter.schemas.enable=false
+value.converter.schemas.enable=false
+offset.storage.file.filename=/tmp/connect.offsets
+Baixar o Conector Debezium para PostgreSQL:
+
+Vá para a página de lançamentos do Debezium.
+Baixe o conector PostgreSQL, por exemplo, debezium-connector-postgres-1.6.0.Final-plugin.tar.gz.
+Extrair o Conector:
+
+bash
+Copiar código
+mkdir -p kafka/connectors
+tar -xzf debezium-connector-postgres-1.6.0.Final-plugin.tar.gz -C kafka/connectors
+Passo 3: Configurar o Conector Debezium
+Criar uma configuração para o Conector Debezium:
+Crie um arquivo chamado postgres-connector.properties com o seguinte conteúdo:
+
+properties
+Copiar código
+name=postgres-connector
+connector.class=io.debezium.connector.postgresql.PostgresConnector
+tasks.max=1
+database.hostname=localhost
+database.port=5432
+database.user=meuusuario
+database.password=senhasecreta
+database.dbname=meubanco
+database.server.name=dbserver1
+slot.name=debezium_slot
+plugin.name=pgoutput
+Passo 4: Executar o Kafka Connect com o Conector Debezium
+Iniciar o Kafka Connect:
+bash
+Copiar código
+bin/connect-standalone.sh config/connect-standalone.properties config/postgres-connector.properties
+Passo 5: Consumir Eventos com um Producer
+Criar um Consumidor de Eventos:
+Utilize a mesma configuração Java descrita anteriormente para criar um consumidor de eventos. Aqui está um exemplo para consumir eventos usando Java:
+
+java
+Copiar código
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -18,7 +91,7 @@ public class DebeziumConsumer {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
-        consumer.subscribe(Collections.singletonList("dbserver1.public.mytable"));
+        consumer.subscribe(Collections.singletonList("dbserver1.public.minhatabela"));
 
         try {
             while (true) {
@@ -33,3 +106,5 @@ public class DebeziumConsumer {
         }
     }
 }
+Conclusão
+Seguindo esses passos, você terá configurado o Debezium para capturar mudanças no PostgreSQL e transmitir essas mudanças para tópicos do Kafka sem usar Docker. Certifique-se de ajustar os detalhes de configuração conforme necessário para o seu ambiente específico.
