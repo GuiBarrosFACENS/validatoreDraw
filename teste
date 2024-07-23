@@ -35,3 +35,178 @@ public class ScheduleConfiguration {
   }
   
 }
+
+--
+
+
+@Configuration
+@ComponentScan(basePackages = {"com.santander.mpa", "com.santander.extractor"})
+@EnableConfigurationProperties(CustomPropertiesExtratorConfiguration.class)
+public class BatchConfiguration {
+
+  private final String source;
+  private final String segmentFileName;
+  private final String cnabFileName;
+
+  public BatchConfiguration(InvoiceCnabBatchProperties invoiceCnabBatchProperties) {
+    this.source = invoiceCnabBatchProperties.getFileSource();
+    this.segmentFileName = invoiceCnabBatchProperties.getSegmentFileName();
+    this.cnabFileName = invoiceCnabBatchProperties.getCnabFileName();
+  }
+
+  @Bean
+  public FlatFileItemReader<InvoicePaymentFileDTO> fileSegmentsItemReader(LineMapper lineMapper) {
+    String outputPath = String.format("%s/%s", source, segmentFileName);
+    return new FlatFileItemReaderBuilder<InvoicePaymentFileDTO>()
+        .resource(new FileSystemResource(outputPath))
+        .lineMapper((line, lineNumber) -> lineMapper.convert(line))
+        .name("readerFileSegments")
+        .build();
+  }
+
+  @Bean
+  public FlatFileItemReader<String> fileCnabItemReader() {
+    return new FlatFileItemReaderBuilder<String>()
+        .resource(new ClassPathResource(cnabFileName))
+        .lineMapper((line, lineNumber) -> line)
+        .name("readerFiler")
+        .build();
+  }
+
+  @Bean
+  public Step mergeInvoiceSegmentsLinesStep(
+      JobRepository jobRepository,
+      PlatformTransactionManager transactionManager,
+      FlatFileItemReader<String> fileCnabItemReader,
+      ItemProcessor<String, String> fileSegmentsProcessorService,
+      FileSegmentsWriterService fileSegmentsWriterService,
+      StepExecutionListener stepExecutionListener,
+      ChunkListener chunkListener) {
+    StepBuilder stepBuilder = new StepBuilder("mergeInvoiceSegmentsLinesStep", jobRepository);
+
+    return stepBuilder
+        .<String, String>chunk(4, transactionManager)
+        .reader(fileCnabItemReader)
+        .processor(fileSegmentsProcessorService)
+        .writer(fileSegmentsWriterService)
+        .listener(stepExecutionListener)
+        .listener(chunkListener)
+        .build();
+  }
+
+  @Bean
+  public Step sendKafkaStep(
+      JobRepository jobRepository,
+      PlatformTransactionManager transactionManager,
+      FlatFileItemReader<InvoicePaymentFileDTO> fileSegmentsItemReader,
+      ItemProcessor<InvoicePaymentFileDTO, InvoicePaymentFile> itemProcessorCustomService,
+      KafkaWriterCustomService kafkaWriterCustomService,
+      TaskExecutor taskExecutor,
+      StepExecutionListener stepExecutionListener,
+      ChunkListener chunkListener) {
+    StepBuilder stepBuilder = new StepBuilder("sendKafkaStep", jobRepository);
+
+    return stepBuilder
+        .<InvoicePaymentFileDTO, InvoicePaymentFile>chunk(5000, transactionManager)
+        .reader(fileSegmentsItemReader)
+        .processor(itemProcessorCustomService)
+        .writer(kafkaWriterCustomService)
+        .taskExecutor(taskExecutor)
+        .listener(stepExecutionListener)
+        .listener(chunkListener)
+        .build();
+  }
+
+  @Bean
+  public Step fileDeletingStep(
+      JobRepository jobRepository,
+      PlatformTransactionManager transactionManager,
+      Tasklet deleteFileTaskletService,
+      StepExecutionListener stepExecutionListener) {
+    StepBuilder stepBuilder = new StepBuilder("fileDeletingStep", jobRepository);
+    return stepBuilder
+        .tasklet(deleteFileTaskletService, transactionManager)
+        .listener(stepExecutionListener)
+        .build();
+  }
+
+  @Bean
+  public Job processJob(
+      JobRepository jobRepository,
+      Step mergeInvoiceSegmentsLinesStep,
+      Step sendKafkaStep,
+      Step fileDeletingStep) {
+    return new JobBuilder("processJob", jobRepository)
+        .incrementer(new RunIdIncrementer())
+        .start(mergeInvoiceSegmentsLinesStep)
+        .next(sendKafkaStep)
+        .next(fileDeletingStep)
+        .build();
+  }
+
+  @Bean
+  public ObjectMapper objectMapper() {
+    ObjectMapper objectMapper = new ObjectMapper();
+    objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    objectMapper.registerModule(new JavaTimeModule());
+    objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    return objectMapper;
+  }
+
+  @Bean
+  public TaskExecutor taskExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(5);
+    executor.setMaxPoolSize(5);
+    executor.setThreadNamePrefix("spring_batch_thread-");
+    executor.initialize();
+    return executor;
+  }
+
+  @Bean
+  public StepExecutionListener stepExecutionListener(ExtractorAdvice extractorAdvice) {
+    return new LoggerStepListener(extractorAdvice);
+  }
+
+  @Bean
+  public ChunkListener chunkListener() {
+    return new LoggerChuckListener();
+  }
+
+  @Bean
+  public VerifyingDigitCalculatorUseCaseImpl verifyingDigitCalculatorUseCaseImpl() {
+    return new VerifyingDigitCalculatorUseCaseImpl();
+  }
+
+  @Bean
+  public VerifyingDigitCalculatorCommandImpl verifyingDigitCalculatorCommandImpl(
+      VerifyingDigitCalculatorUseCaseImpl verifyingDigitCalculatorUseCaseImpl) {
+    return new VerifyingDigitCalculatorCommandImpl(verifyingDigitCalculatorUseCaseImpl);
+  }
+
+  @Bean
+  public NumericBarCodeBuilderUseCaseImpl numericBarCodeBuilderUseCaseImpl(
+      VerifyingDigitCalculatorCommandImpl verifyingDigitCalculatorCommandImpl) {
+    return new NumericBarCodeBuilderUseCaseImpl(verifyingDigitCalculatorCommandImpl);
+  }
+
+  @Bean
+  public CreateFileUseCaseImpl createFileUseCaseImpl() {
+    return new CreateFileUseCaseImpl();
+  }
+
+  @Bean
+  public DeleteFileUseCaseImpl deleteFileUseCaseImpl() {
+    return new DeleteFileUseCaseImpl();
+  }
+
+  @Bean
+  public Map<String, List<String>> lineHashMap() {
+    return new HashMap<>();
+  }
+
+  @Bean
+  public FileSegmentsBuilderUseCase fileSegmentsBuilderUseCase() {
+    return new FileSegmentsBuilderUseCaseImpl();
+  }
+}
