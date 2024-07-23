@@ -1,5 +1,3 @@
-Passo 1: Instalar o Kafka e Kafka Connect
-Primeiro, baixe e instale o Apache Kafka:
 
 Baixar o Kafka:
 
@@ -64,14 +62,14 @@ plugin.name=pgoutput
 Passo 4: Executar o Kafka Connect com o Conector Debezium
 Iniciar o Kafka Connect:
 bash
-Copiar código
 bin/connect-standalone.sh config/connect-standalone.properties config/postgres-connector.properties
+
 Passo 5: Consumir Eventos com um Producer
 Criar um Consumidor de Eventos:
 Utilize a mesma configuração Java descrita anteriormente para criar um consumidor de eventos. Aqui está um exemplo para consumir eventos usando Java:
 
 java
-Copiar código
+
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -106,5 +104,7 @@ public class DebeziumConsumer {
         }
     }
 }
-Conclusão
-Seguindo esses passos, você terá configurado o Debezium para capturar mudanças no PostgreSQL e transmitir essas mudanças para tópicos do Kafka sem usar Docker. Certifique-se de ajustar os detalhes de configuração conforme necessário para o seu ambiente específico.
+
+Seguindo esses passos, você terá configurado o Debezium para capturar mudanças no PostgreSQL e transmitir essas mudanças
+
+https://debezium.io/releases/
