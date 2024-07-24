@@ -6,6 +6,7 @@ import com.santander.mpa.infra.InvoiceCnabBatchProperties;
 import com.santander.mpa.infra.exception.ErrorWriteFileException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -14,6 +15,7 @@ import org.springframework.batch.item.Chunk;
 import java.io.IOException;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -34,32 +36,32 @@ class FileSegmentsWriterServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/source");
-        when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("test-file.txt");
+        when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/file/source");
+        when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("segmentFile.txt");
     }
 
     @Test
     void testWriteSuccess() throws IOException {
-        Chunk<String> chunk = new Chunk<>(List.of("line1", "line2"));
+        Chunk<String> chunk = new Chunk<>(List.of("line1", "line2", "line3"));
 
         fileSegmentsWriterService.write(chunk);
 
-        verify(createFileUseCase).createFile("/path/to/source/test-file.txt", new StringBuilder("line1line2"));
+        ArgumentCaptor<String> pathCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<StringBuilder> contentCaptor = ArgumentCaptor.forClass(StringBuilder.class);
+
+        verify(createFileUseCase).createFile(pathCaptor.capture(), contentCaptor.capture());
         verify(extractor).execute("telemetria_log_category");
+
+        assertEquals("/path/to/file/source/segmentFile.txt", pathCaptor.getValue());
+        assertEquals("line1line2line3", contentCaptor.getValue().toString());
     }
 
     @Test
     void testWriteIOException() throws IOException {
-        Chunk<String> chunk = new Chunk<>(List.of("line1", "line2"));
+        Chunk<String> chunk = new Chunk<>(List.of("line1", "line2", "line3"));
         doThrow(new IOException("File error")).when(createFileUseCase).createFile(anyString(), any());
 
-        try {
-            fileSegmentsWriterService.write(chunk);
-        } catch (ErrorWriteFileException e) {
-            // Expected exception
-        }
-
-        verify(createFileUseCase).createFile("/path/to/source/test-file.txt", new StringBuilder("line1line2"));
-        verify(extractor, never()).execute(anyString());
+        ErrorWriteFileException exception = assertThrows(ErrorWriteFileException.class, () -> fileSegmentsWriterService.write(chunk));
+        assertEquals("/path/to/file/source/segmentFile.txt", exception.getMessage());
     }
 }
