@@ -1,34 +1,86 @@
-package com.santander.mpa.domain.usecase.impl;
+package com.santander.mpa.app.service.writers;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.santander.extractor.utils.ExtractorAdvice;
 import com.santander.mpa.domain.usecase.CreateFileUseCase;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
+import com.santander.mpa.infra.InvoiceCnabBatchProperties;
+import com.santander.mpa.infra.exception.ErrorWriteFileException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.batch.item.Chunk;
+
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.List;
 
-public class CreateFileUseCaseImpl implements CreateFileUseCase {
-  private static final Logger logger = LoggerFactory.getLogger(CreateFileUseCaseImpl.class);
+class FileSegmentsWriterServiceTest {
 
-  @Override
-  public void createFile(String fileName, StringBuilder fileLines) throws IOException {
-    Path path = Paths.get(fileName);
-    File file = path.toFile();
+    @Mock
+    private CreateFileUseCase createFileUseCase;
 
-    if (!file.exists()) {
-      boolean created = file.createNewFile();
-      if (created) {
-        logger.info("File created successfully at path: ({}).", fileName);
-      } else logger.debug("File already exists at path ({}).", fileName);
-    } else {
-      logger.debug("File already exists at path: ({}).", fileName);
+    @Mock
+    private ExtractorAdvice extractor;
+
+    @Mock
+    private InvoiceCnabBatchProperties invoiceCnabBatchProperties;
+
+    private FileSegmentsWriterService fileSegmentsWriterService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/file/source");
+        when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("segmentFile.txt");
+        fileSegmentsWriterService = new FileSegmentsWriterService(invoiceCnabBatchProperties, createFileUseCase, extractor);
     }
 
-    try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true))) {
-      bufferedWriter.write(fileLines.toString());
+    @Test
+    void testWriteWithValidInput() throws IOException {
+        // Mock input
+        Chunk<String> lines = new Chunk<>(List.of("line1", "line2", "line3"));
+
+        // Call the method under test
+        fileSegmentsWriterService.write(lines);
+
+        // Validate interactions and assertions
+        String expectedOutputPath = "/path/to/file/source/segmentFile.txt";
+        StringBuilder expectedFileLines = new StringBuilder("line1line2line3");
+
+        // Argument captor to capture the actual arguments passed to createFile
+        ArgumentCaptor<StringBuilder> fileLinesCaptor = ArgumentCaptor.forClass(StringBuilder.class);
+
+        verify(createFileUseCase).createFile(eq(expectedOutputPath), fileLinesCaptor.capture());
+        assertEquals(expectedFileLines.toString(), fileLinesCaptor.getValue().toString());
+        verify(extractor).execute("telemetria_log_category");
     }
-  }
+
+    @Test
+    void testWriteThrowsErrorWriteFileException() throws IOException {
+        // Mock input
+        Chunk<String> lines = new Chunk<>(List.of("line1", "line2", "line3"));
+
+        // Mock behavior to throw IOException
+        doThrow(new IOException("Test exception")).when(createFileUseCase).createFile(anyString(), any(StringBuilder.class));
+
+        // Call the method under test and verify exception
+        ErrorWriteFileException exception = assertThrows(ErrorWriteFileException.class, () -> {
+            fileSegmentsWriterService.write(lines);
+        });
+
+        // Validate interactions
+        String expectedOutputPath = "/path/to/file/source/segmentFile.txt";
+        StringBuilder expectedFileLines = new StringBuilder("line1line2line3");
+
+        // Argument captor to capture the actual arguments passed to createFile
+        ArgumentCaptor<StringBuilder> fileLinesCaptor = ArgumentCaptor.forClass(StringBuilder.class);
+
+        verify(createFileUseCase).createFile(eq(expectedOutputPath), fileLinesCaptor.capture());
+        assertEquals(expectedFileLines.toString(), fileLinesCaptor.getValue().toString());
+        verify(extractor, never()).execute("telemetria_log_category");
+        assertEquals("Error creating file at path: (/path/to/file/source/segmentFile.txt).", exception.getMessage());
+    }
 }
