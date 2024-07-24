@@ -1,7 +1,78 @@
-Required type:
-Chunk
-<String>
-Provided:
-Chunk
-<Object>
-no instance(s) of type variable(s) E exist so that List<E> conforms to String inference variable W has incompatible bounds: equality constraints: String lower bounds: List<String>, Integer
+package com.santander.mpa.app.service.writers;
+
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.domain.usecase.CreateFileUseCase;
+import com.santander.mpa.infra.InvoiceCnabBatchProperties;
+import com.santander.mpa.infra.exception.ErrorWriteFileException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.batch.item.Chunk;
+import org.springframework.batch.item.ItemWriter;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+
+public class FileSegmentsWriterServiceTest {
+
+    @Mock
+    private CreateFileUseCase createFileUseCase;
+
+    @Mock
+    private ExtractorAdvice extractor;
+
+    @Mock
+    private InvoiceCnabBatchProperties invoiceCnabBatchProperties;
+
+    @InjectMocks
+    private FileSegmentsWriterService fileSegmentsWriterService;
+
+    @BeforeEach
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
+
+        when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/file/source");
+        when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("segmentFile.txt");
+    }
+
+    @Test
+    public void testWriteSuccess() throws IOException {
+        // Criando o Chunk mockado
+        Chunk<String> chunk = mock(Chunk.class);
+        when(chunk.getItems()).thenReturn(Arrays.asList("line1", "line2", "line3"));
+
+        fileSegmentsWriterService.write(chunk);
+
+        ArgumentCaptor<String> filePathCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<StringBuilder> fileLinesCaptor = ArgumentCaptor.forClass(StringBuilder.class);
+
+        verify(createFileUseCase, times(1)).createFile(filePathCaptor.capture(), fileLinesCaptor.capture());
+
+        assertEquals("/path/to/file/source/segmentFile.txt", filePathCaptor.getValue());
+        assertEquals("line1line2line3", fileLinesCaptor.getValue().toString());
+
+        verify(extractor, times(1)).execute("telemetria_log_category");
+    }
+
+    @Test
+    public void testWriteThrowsIOException() throws IOException {
+        // Criando o Chunk mockado
+        Chunk<String> chunk = mock(Chunk.class);
+        when(chunk.getItems()).thenReturn(Arrays.asList("line1", "line2", "line3"));
+
+        doThrow(new IOException("File error")).when(createFileUseCase).createFile(anyString(), any(StringBuilder.class));
+
+        assertThrows(ErrorWriteFileException.class, () -> fileSegmentsWriterService.write(chunk));
+
+        verify(createFileUseCase, times(1)).createFile(anyString(), any(StringBuilder.class));
+        verify(extractor, never()).execute(anyString());
+    }
+}
