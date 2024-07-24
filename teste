@@ -28,3 +28,49 @@ public class ItemProcessorCustomService
 
 ---
 
+package com.santander.mpa.app.service.processors;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.app.dto.FileDetailsDTO;
+import com.santander.mpa.app.dto.InvoiceDetailsDTO;
+import com.santander.mpa.app.dto.InvoicePaymentDetailsDTO;
+import com.santander.mpa.app.dto.InvoicePaymentFileDTO;
+import com.santander.mpa.app.mapper.impl.FileDetailsMapperImpl;
+import com.santander.mpa.app.mapper.impl.InvoiceDetailsMapperImpl;
+import com.santander.mpa.app.mapper.impl.InvoicePaymentDetailsMapperImpl;
+import com.santander.mpa.app.mapper.impl.InvoicePaymentFileMapperImpl;
+import com.santander.mpa.domain.entity.InvoicePaymentFile;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+class ItemProcessorCustomServiceTest {
+
+  private ExtractorAdvice extractor;
+
+  @Test
+  void testProcess() {
+    FileDetailsDTO fileDetailsDTO = Mockito.mock(FileDetailsDTO.class);
+    InvoiceDetailsDTO invoiceDetailsDTO = Mockito.mock(InvoiceDetailsDTO.class);
+    InvoicePaymentDetailsDTO invoicePaymentDetailsDTO =
+        Mockito.mock(InvoicePaymentDetailsDTO.class);
+
+    InvoicePaymentFileDTO invoicePaymentFileDTO = new InvoicePaymentFileDTO();
+
+    invoicePaymentFileDTO.setFileDetailsDTO(fileDetailsDTO);
+    invoicePaymentFileDTO.setInvoiceDetailsDTO(invoiceDetailsDTO);
+    invoicePaymentFileDTO.setInvoicePaymentDetailsDTO(invoicePaymentDetailsDTO);
+
+    ItemProcessorCustomService itemProcessorCustomService =
+        new ItemProcessorCustomService(
+            new InvoicePaymentFileMapperImpl(
+                new FileDetailsMapperImpl(),
+                new InvoiceDetailsMapperImpl(),
+                new InvoicePaymentDetailsMapperImpl()), extractor);
+
+    InvoicePaymentFile result = itemProcessorCustomService.process(invoicePaymentFileDTO);
+
+    assertNotNull(result);
+  }
+}
