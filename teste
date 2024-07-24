@@ -1,67 +1,52 @@
-package com.santander.mpa.app.service.processors;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+package com.santander.mpa.app.service.writers;
 
 import com.santander.extractor.utils.ExtractorAdvice;
-import com.santander.mpa.domain.usecase.FileSegmentsBuilderUseCase;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import com.santander.mpa.domain.usecase.CreateFileUseCase;
+import com.santander.mpa.infra.InvoiceCnabBatchProperties;
+import com.santander.mpa.infra.exception.ErrorWriteFileException;
+import java.io.IOException;
 
-class FileSegmentsProcessorServiceTest {
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.batch.item.Chunk;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.stereotype.Service;
 
-    @Mock
-    private FileSegmentsBuilderUseCase fileSegmentsBuilderUseCase;
+@Service
+@Slf4j
+public class FileSegmentsWriterService implements ItemWriter<String> {
 
-    @Mock
-    private ExtractorAdvice extractor;
+  private final String outputPath;
 
-    @InjectMocks
-    private FileSegmentsProcessorService fileSegmentsProcessorService;
+  private final CreateFileUseCase createFileUseCase;
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
+  private final ExtractorAdvice extractor;
+
+  public FileSegmentsWriterService(
+          InvoiceCnabBatchProperties invoiceCnabBatchProperties, CreateFileUseCase createFileUseCase, ExtractorAdvice extractor) {
+    this.outputPath =
+        String.format(
+            "%s/%s",
+            invoiceCnabBatchProperties.getFileSource(),
+            invoiceCnabBatchProperties.getSegmentFileName());
+    this.createFileUseCase = createFileUseCase;
+    this.extractor = extractor;
+  }
+
+  @Override
+  public void write(@NotNull Chunk<? extends String> lines) {
+    try {
+      StringBuilder fileLines = new StringBuilder();
+      lines.forEach(fileLines::append);
+
+      this.createFileUseCase.createFile(outputPath, fileLines);
+
+      ExtractorAdvice.put("data.data.mapAttributes.process", "create file cache");
+      extractor.execute("telemetria_log_category");
+    } catch (IOException e) {
+      log.error("Error creating file at path: ({}).", outputPath, e);
+      throw new ErrorWriteFileException(outputPath, e);
     }
-
-    @Test
-    void testProcessWithValidInput() {
-        // Mock the input and expected output
-        String input = "valid line";
-        String expectedOutput = "processed line";
-
-        // Mock the behavior of fileSegmentsBuilderUseCase
-        when(fileSegmentsBuilderUseCase.processLine(input)).thenReturn(expectedOutput);
-
-        // Call the method under test
-        String result = fileSegmentsProcessorService.process(input);
-
-        // Validate interactions and assertions
-        verify(extractor).execute("telemetria_log_category");
-        verify(fileSegmentsBuilderUseCase).processLine(input);
-        assertNotNull(result);
-        assertEquals(expectedOutput, result);
-    }
-
-    @Test
-    void testProcessThrowsException() {
-        // Mock the input
-        String input = "invalid line";
-
-        // Mock the behavior of fileSegmentsBuilderUseCase to throw an exception
-        when(fileSegmentsBuilderUseCase.processLine(input)).thenThrow(new RuntimeException("Test exception"));
-
-        // Call the method under test and verify exception
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            fileSegmentsProcessorService.process(input);
-        });
-
-        // Validate interactions
-        verify(extractor).execute("telemetria_log_category");
-        verify(fileSegmentsBuilderUseCase).processLine(input);
-        assertEquals("Test exception", exception.getMessage());
-    }
+  }
 }
