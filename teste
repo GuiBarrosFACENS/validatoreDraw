@@ -1,27 +1,3 @@
-package com.santander.mpa.app.service.writers;
-
-import com.santander.extractor.utils.ExtractorAdvice;
-import com.santander.mpa.domain.usecase.CreateFileUseCase;
-import com.santander.mpa.infra.InvoiceCnabBatchProperties;
-import com.santander.mpa.infra.exception.ErrorWriteFileException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.batch.item.Chunk;
-
-import java.io.IOException;
-import java.util.Arrays;
-
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
-
-@ExtendWith(MockitoExtension.class)
-class FileSegmentsWriterServiceTest {
-
     @Mock
     private InvoiceCnabBatchProperties invoiceCnabBatchProperties;
 
@@ -38,25 +14,23 @@ class FileSegmentsWriterServiceTest {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
         outputPath = "/path/to/file/source/segmentFile.txt";
         when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/file/source");
         when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("segmentFile.txt");
-        fileSegmentsWriterService = new FileSegmentsWriterService(invoiceCnabBatchProperties, createFileUseCase, extractor);
     }
 
     @Test
     void testWriteSuccess() throws IOException {
         // Arrange
         Chunk<String> lines = new Chunk<>(Arrays.asList("line1", "line2", "line3"));
-        doNothing().when(createFileUseCase).createFile(eq(outputPath), eq("line1line2line3"));
+        when(createFileUseCase.createFile(eq(outputPath), eq("line1line2line3"))).thenReturn(null);
 
         // Act
         fileSegmentsWriterService.write(lines);
 
         // Assert
-        verify(createFileUseCase, times(1)).createFile(outputPath, "line1line2line3");
-        verify(extractor, times(1)).execute("telemetria_log_category");
+        verify(createFileUseCase).createFile(eq(outputPath), eq("line1line2line3"));
+        verify(extractor).execute("telemetria_log_category");
     }
 
     @Test
@@ -67,6 +41,5 @@ class FileSegmentsWriterServiceTest {
 
         // Act & Assert
         assertThrows(ErrorWriteFileException.class, () -> fileSegmentsWriterService.write(lines));
-        verify(createFileUseCase, times(1)).createFile(outputPath, "line1line2line3");
+        verify(createFileUseCase).createFile(eq(outputPath), eq("line1line2line3"));
     }
-}
