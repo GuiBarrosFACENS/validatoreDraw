@@ -1,76 +1,30 @@
-Passos Detalhados
-Extraia o Kafka e o Debezium:
+package com.santander.mpa.app.service.processors;
 
-Você já deve ter extraído o Kafka e o conector Debezium. Certifique-se de que eles estão no lugar correto. Por exemplo:
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.app.dto.InvoicePaymentFileDTO;
+import com.santander.mpa.app.mapper.InvoicePaymentFileMapper;
+import com.santander.mpa.domain.entity.InvoicePaymentFile;
+import lombok.AllArgsConstructor;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.batch.item.ItemProcessor;
+import org.springframework.stereotype.Service;
 
-bash
-# Extraia o Kafka
-tar -xzf kafka_2.13-2.8.0.tgz -C /path/to/
-cd /path/to/kafka_2.13-2.8.0
+@Service
+@AllArgsConstructor
+public class ItemProcessorCustomService
+    implements ItemProcessor<InvoicePaymentFileDTO, InvoicePaymentFile> {
 
-# Crie o diretório para os conectores e extraia o conector Debezium
-mkdir -p connectors
-tar -xzf debezium-connector-postgres-1.6.0.Final-plugin.tar.gz -C connectors
-Criar e Configurar os Arquivos de Propriedades:
+  private final InvoicePaymentFileMapper invoicePaymentFileMapper;
+  private final ExtractorAdvice extractor;
 
-Crie os arquivos connect-standalone.properties e postgres-connector.properties.
+  @Override
+  public InvoicePaymentFile process(@NotNull InvoicePaymentFileDTO invoicePaymentFileDTO) {
+    ExtractorAdvice.put("data.data.mapAttributes.process", "process cnab");
+    extractor.execute("telemetria_log_category");
+    return this.invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO);
+  }
+}
 
-connect-standalone.properties:
 
-properties
+---
 
-bootstrap.servers=localhost:9092
-key.converter=org.apache.kafka.connect.json.JsonConverter
-value.converter=org.apache.kafka.connect.json.JsonConverter
-key.converter.schemas.enable=false
-value.converter.schemas.enable=false
-offset.storage.file.filename=/tmp/connect.offsets
-Salve este arquivo no diretório config do Kafka:
-
-arduino
-
-/path/to/kafka_2.13-2.8.0/config/connect-standalone.properties
-postgres-connector.properties:
-
-properties
-Copiar código
-name=postgres-connector
-connector.class=io.debezium.connector.postgresql.PostgresConnector
-tasks.max=1
-database.hostname=localhost
-database.port=5432
-database.user=meuusuario
-database.password=senhasecreta
-database.dbname=meubanco
-database.server.name=dbserver1
-slot.name=debezium_slot
-plugin.name=pgoutput
-Salve este arquivo no diretório connectors/debezium-connector-postgres:
-
-bash
-Copiar código
-/path/to/kafka_2.13-2.8.0/connectors/postgres-connector.properties
-Iniciar o Zookeeper e o Kafka:
-
-Inicie o Zookeeper:
-
-bash
-Copiar código
-/path/to/kafka_2.13-2.8.0/bin/zookeeper-server-start.sh /path/to/kafka_2.13-2.8.0/config/zookeeper.properties
-Em outro terminal, inicie o Kafka:
-
-bash
-Copiar código
-/path/to/kafka_2.13-2.8.0/bin/kafka-server-start.sh /path/to/kafka_2.13-2.8.0/config/server.properties
-Executar o Kafka Connect com o Conector Debezium:
-
-Finalmente, execute o Kafka Connect com o conector Debezium:
-
-bash
-Copiar código
-/path/to/kafka_2.13-2.8.0/bin/connect-standalone.sh /path/to/kafka_2.13-2.8.0/config/connect-standalone.properties /path/to/kafka_2.13-2.8.0/connectors/postgres-connector.properties
-Verificação
-Certifique-se de que o caminho para os arquivos de configuração está correto ao executar o comando. O comando acima deve ser executado no diretório base onde está o Kafka (/path/to/kafka_2.13-2.8.0/).
-
-Conclusão
-Seguindo esses passos, você deve conseguir rodar o Debezium localmente sem Docker. Certifique-se de que todas as dependências e caminhos estão corretos e que os serviços Zookeeper e Kafka estão em execução antes de iniciar o Kafka Connect.
