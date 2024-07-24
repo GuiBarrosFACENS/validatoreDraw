@@ -1,68 +1,23 @@
+package com.santander.mpa.app.service.processors;
 
-    @Mock
-    private ExtractorAdvice extractor;
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.domain.usecase.FileSegmentsBuilderUseCase;
+import lombok.AllArgsConstructor;
+import org.jetbrains.annotations.NotNull;
+import org.springframework.batch.item.ItemProcessor;
+import org.springframework.stereotype.Service;
 
-    @Mock
-    private InvoicePaymentFileMapper invoicePaymentFileMapper;
+@Service
+@AllArgsConstructor
+public class FileSegmentsProcessorService implements ItemProcessor<String, String> {
 
-    @InjectMocks
-    private ItemProcessorCustomService itemProcessorCustomService;
+  private final FileSegmentsBuilderUseCase fileSegmentsBuilderUseCase;
+  private final ExtractorAdvice extractor;
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
-
-    @Test
-    void testProcessWithValidInput() {
-        // Mock dependencies
-        FileDetailsDTO fileDetailsDTO = mock(FileDetailsDTO.class);
-        InvoiceDetailsDTO invoiceDetailsDTO = mock(InvoiceDetailsDTO.class);
-        InvoicePaymentDetailsDTO invoicePaymentDetailsDTO = mock(InvoicePaymentDetailsDTO.class);
-
-        // Create DTO and set dependencies
-        InvoicePaymentFileDTO invoicePaymentFileDTO = new InvoicePaymentFileDTO();
-        invoicePaymentFileDTO.setFileDetailsDTO(fileDetailsDTO);
-        invoicePaymentFileDTO.setInvoiceDetailsDTO(invoiceDetailsDTO);
-        invoicePaymentFileDTO.setInvoicePaymentDetailsDTO(invoicePaymentDetailsDTO);
-
-        // Mock the behavior of the mapper
-        InvoicePaymentFile expectedInvoicePaymentFile = new InvoicePaymentFile();
-        when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenReturn(expectedInvoicePaymentFile);
-
-        // Call the method under test
-        InvoicePaymentFile result = itemProcessorCustomService.process(invoicePaymentFileDTO);
-
-        // Validate interactions and assertions
-        verify(extractor).execute("telemetria_log_category");
-        verify(invoicePaymentFileMapper).toEntity(invoicePaymentFileDTO);
-        assertNotNull(result);
-        assertEquals(expectedInvoicePaymentFile, result);
-    }
-
-    @Test
-    void testProcessThrowsException() {
-        // Mock dependencies
-        FileDetailsDTO fileDetailsDTO = mock(FileDetailsDTO.class);
-        InvoiceDetailsDTO invoiceDetailsDTO = mock(InvoiceDetailsDTO.class);
-        InvoicePaymentDetailsDTO invoicePaymentDetailsDTO = mock(InvoicePaymentDetailsDTO.class);
-
-        // Create DTO and set dependencies
-        InvoicePaymentFileDTO invoicePaymentFileDTO = new InvoicePaymentFileDTO();
-        invoicePaymentFileDTO.setFileDetailsDTO(fileDetailsDTO);
-        invoicePaymentFileDTO.setInvoiceDetailsDTO(invoiceDetailsDTO);
-        invoicePaymentFileDTO.setInvoicePaymentDetailsDTO(invoicePaymentDetailsDTO);
-
-        // Mock the behavior of the mapper to throw an exception
-        when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenThrow(new RuntimeException("Test exception"));
-
-        // Call the method under test and verify exception
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            itemProcessorCustomService.process(invoicePaymentFileDTO);
-        });
-
-        // Validate interactions
-        verify(extractor).execute("telemetria_log_category");
-        verify(invoicePaymentFileMapper).toEntity(invoicePaymentFileDTO);
-        assertEquals("Test exception", exception.getMessage());
-    }
+  @Override
+  public String process(@NotNull String line) {
+    ExtractorAdvice.put("data.data.mapAttributes.process", "process cnab");
+    extractor.execute("telemetria_log_category");
+    return this.fileSegmentsBuilderUseCase.processLine(line);
+  } 
+}
