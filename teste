@@ -4,84 +4,62 @@ import com.santander.extractor.utils.ExtractorAdvice;
 import com.santander.mpa.domain.usecase.CreateFileUseCase;
 import com.santander.mpa.infra.InvoiceCnabBatchProperties;
 import com.santander.mpa.infra.exception.ErrorWriteFileException;
-import java.io.IOException;
-
-import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.springframework.batch.item.Chunk;
-import org.springframework.batch.item.ItemWriter;
-import org.springframework.stereotype.Service;
 
-@Service
-@Slf4j
-public class FileSegmentsWriterService implements ItemWriter<String> {
-
-  private final String outputPath;
-
-  private final CreateFileUseCase createFileUseCase;
-
-  private final ExtractorAdvice extractor;
-
-  public FileSegmentsWriterService(
-          InvoiceCnabBatchProperties invoiceCnabBatchProperties, CreateFileUseCase createFileUseCase, ExtractorAdvice extractor) {
-    this.outputPath =
-        String.format(
-            "%s/%s",
-            invoiceCnabBatchProperties.getFileSource(),
-            invoiceCnabBatchProperties.getSegmentFileName());
-    this.createFileUseCase = createFileUseCase;
-    this.extractor = extractor;
-  }
-
-  @Override
-  public void write(@NotNull Chunk<? extends String> lines) {
-    try {
-      StringBuilder fileLines = new StringBuilder();
-      lines.forEach(fileLines::append);
-
-      this.createFileUseCase.createFile(outputPath, fileLines);
-
-      ExtractorAdvice.put("data.data.mapAttributes.process", "create file cache");
-      extractor.execute("telemetria_log_category");
-    } catch (IOException e) {
-      log.error("Error creating file at path: ({}).", outputPath, e);
-      throw new ErrorWriteFileException(outputPath, e);
-    }
-  }
-}
-
-
-package com.santander.mpa.domain.usecase.impl;
-
-import com.santander.mpa.domain.usecase.CreateFileUseCase;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.List;
 
-public class CreateFileUseCaseImpl implements CreateFileUseCase {
-  private static final Logger logger = LoggerFactory.getLogger(CreateFileUseCaseImpl.class);
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
-  @Override
-  public void createFile(String fileName, StringBuilder fileLines) throws IOException {
-    Path path = Paths.get(fileName);
-    File file = path.toFile();
+class FileSegmentsWriterServiceTest {
 
-    if (!file.exists()) {
-      boolean created = file.createNewFile();
-      if (created) {
-        logger.info("File created successfully at path: ({}).", fileName);
-      } else logger.debug("File already exists at path ({}).", fileName);
-    } else {
-      logger.debug("File already exists at path: ({}).", fileName);
+    @Mock
+    private InvoiceCnabBatchProperties invoiceCnabBatchProperties;
+
+    @Mock
+    private CreateFileUseCase createFileUseCase;
+
+    @Mock
+    private ExtractorAdvice extractor;
+
+    @InjectMocks
+    private FileSegmentsWriterService fileSegmentsWriterService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/source");
+        when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("test-file.txt");
     }
 
-    try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true))) {
-      bufferedWriter.write(fileLines.toString());
+    @Test
+    void testWriteSuccess() throws IOException {
+        Chunk<String> chunk = new Chunk<>(List.of("line1", "line2"));
+
+        fileSegmentsWriterService.write(chunk);
+
+        verify(createFileUseCase).createFile("/path/to/source/test-file.txt", new StringBuilder("line1line2"));
+        verify(extractor).execute("telemetria_log_category");
     }
-  }
+
+    @Test
+    void testWriteIOException() throws IOException {
+        Chunk<String> chunk = new Chunk<>(List.of("line1", "line2"));
+        doThrow(new IOException("File error")).when(createFileUseCase).createFile(anyString(), any());
+
+        try {
+            fileSegmentsWriterService.write(chunk);
+        } catch (ErrorWriteFileException e) {
+            // Expected exception
+        }
+
+        verify(createFileUseCase).createFile("/path/to/source/test-file.txt", new StringBuilder("line1line2"));
+        verify(extractor, never()).execute(anyString());
+    }
 }
