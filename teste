@@ -1,41 +1,58 @@
-C:\dev-tools-santander\jdk\jdk-17.0.10_windows-x64_bin\jdk-17.0.10\bin\java.exe -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\lib\idea_rt.jar=58005:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\bin -Dfile.encoding=UTF-8 @C:\Users\X297629\AppData\Local\Temp\idea_arg_file1486977990 com.intellij.rt.junit.JUnitStarter -ideVersion5 -junit5 com.santander.mpa.app.service.writers.FileSegmentsWriterServiceTest,testWriteWithValidInput
-Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
-Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+    @Mock
+    private CreateFileUseCase createFileUseCase;
 
+    @Mock
+    private ExtractorAdvice extractor;
 
-Argument(s) are different! Wanted:
-createFileUseCase.createFile(
-    "/path/to/file/source/segmentFile.txt",
-    line1line2line3
-);
--> at com.santander.mpa.app.service.writers.FileSegmentsWriterServiceTest.testWriteWithValidInput(FileSegmentsWriterServiceTest.java:57)
-Actual invocations have different arguments at position [1]:
-createFileUseCase.createFile(
-    "/path/to/file/source/segmentFile.txt",
-    line1line2line3
-);
--> at com.santander.mpa.app.service.writers.FileSegmentsWriterService.write(FileSegmentsWriterService.java:43)
+    @Mock
+    private InvoiceCnabBatchProperties invoiceCnabBatchProperties;
 
-Comparison Failure: 
-<Click to see difference>
+    private FileSegmentsWriterService fileSegmentsWriterService;
 
-Argument(s) are different! Wanted:
-createFileUseCase.createFile(
-    "/path/to/file/source/segmentFile.txt",
-    line1line2line3
-);
--> at com.santander.mpa.app.service.writers.FileSegmentsWriterServiceTest.testWriteWithValidInput(FileSegmentsWriterServiceTest.java:57)
-Actual invocations have different arguments at position [1]:
-createFileUseCase.createFile(
-    "/path/to/file/source/segmentFile.txt",
-    line1line2line3
-);
--> at com.santander.mpa.app.service.writers.FileSegmentsWriterService.write(FileSegmentsWriterService.java:43)
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/file/source");
+        when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("segmentFile.txt");
+        fileSegmentsWriterService = new FileSegmentsWriterService(invoiceCnabBatchProperties, createFileUseCase, extractor);
+    }
 
-	at com.santander.mpa.app.service.writers.FileSegmentsWriterServiceTest.testWriteWithValidInput(FileSegmentsWriterServiceTest.java:57)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
-	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+    @Test
+    void testWriteWithValidInput() throws IOException {
+        // Mock input
+        Chunk<String> lines = new Chunk<>(List.of("line1", "line2", "line3"));
 
+        // Call the method under test
+        fileSegmentsWriterService.write(lines);
 
-Process finished with exit code -1
+        // Validate interactions and assertions
+        String expectedOutputPath = "/path/to/file/source/segmentFile.txt";
+        StringBuilder expectedFileLines = new StringBuilder();
+        lines.forEach(expectedFileLines::append);
+
+        verify(createFileUseCase).createFile(expectedOutputPath, expectedFileLines);
+        verify(extractor).execute("telemetria_log_category");
+    }
+
+    @Test
+    void testWriteThrowsErrorWriteFileException() throws IOException {
+        // Mock input
+        Chunk<String> lines = new Chunk<>(List.of("line1", "line2", "line3"));
+
+        // Mock behavior to throw IOException
+        doThrow(new IOException("Test exception")).when(createFileUseCase).createFile(anyString(), any(StringBuilder.class));
+
+        // Call the method under test and verify exception
+        ErrorWriteFileException exception = assertThrows(ErrorWriteFileException.class, () -> {
+            fileSegmentsWriterService.write(lines);
+        });
+
+        // Validate interactions
+        String expectedOutputPath = "/path/to/file/source/segmentFile.txt";
+        StringBuilder expectedFileLines = new StringBuilder();
+        lines.forEach(expectedFileLines::append);
+
+        verify(createFileUseCase).createFile(expectedOutputPath, expectedFileLines);
+        verify(extractor, never()).execute("telemetria_log_category");
+        assertEquals("Error creating file at path: (/path/to/file/source/segmentFile.txt).", exception.getMessage());
+    }
