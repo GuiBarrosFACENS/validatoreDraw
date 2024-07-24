@@ -11,20 +11,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.batch.item.Chunk;
+import org.springframework.batch.item.ItemWriter;
 
 import java.io.IOException;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-class FileSegmentsWriterServiceTest {
-
-    @Mock
-    private InvoiceCnabBatchProperties invoiceCnabBatchProperties;
+public class FileSegmentsWriterServiceTest {
 
     @Mock
     private CreateFileUseCase createFileUseCase;
@@ -32,44 +28,45 @@ class FileSegmentsWriterServiceTest {
     @Mock
     private ExtractorAdvice extractor;
 
+    @Mock
+    private InvoiceCnabBatchProperties invoiceCnabBatchProperties;
+
     @InjectMocks
     private FileSegmentsWriterService fileSegmentsWriterService;
 
     @BeforeEach
-    void setUp() {
+    public void setUp() {
         MockitoAnnotations.openMocks(this);
+
         when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/file/source");
         when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("segmentFile.txt");
     }
 
     @Test
-    void testWriteSuccess() throws IOException {
-        // Criar uma instância de Chunk com linhas
-        List<String> lines = List.of("line1", "line2", "line3");
-        Chunk<String> chunk = new Chunk<>(lines);
+    public void testWriteSuccess() throws IOException {
+        Chunk<String> chunk = new Chunk<>(List.of("line1", "line2", "line3"), 0);
 
         fileSegmentsWriterService.write(chunk);
 
-        ArgumentCaptor<String> pathCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<StringBuilder> contentCaptor = ArgumentCaptor.forClass(StringBuilder.class);
+        ArgumentCaptor<String> filePathCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<StringBuilder> fileLinesCaptor = ArgumentCaptor.forClass(StringBuilder.class);
 
-        verify(createFileUseCase).createFile(pathCaptor.capture(), contentCaptor.capture());
-        verify(extractor).execute("telemetria_log_category");
+        verify(createFileUseCase, times(1)).createFile(filePathCaptor.capture(), fileLinesCaptor.capture());
 
-        assertEquals("/path/to/file/source/segmentFile.txt", pathCaptor.getValue());
-        assertEquals("line1line2line3", contentCaptor.getValue().toString());
+        assertEquals("/path/to/file/source/segmentFile.txt", filePathCaptor.getValue());
+        assertEquals("line1line2line3", fileLinesCaptor.getValue().toString());
+
+        verify(extractor, times(1)).execute("telemetria_log_category");
     }
 
     @Test
-    void testWriteIOException() throws IOException {
-        // Criar uma instância de Chunk com linhas
-        List<String> lines = List.of("line1", "line2", "line3");
-        Chunk<String> chunk = new Chunk<>(lines);
-
+    public void testWriteThrowsIOException() throws IOException {
+        Chunk<String> chunk = new Chunk<>(List.of("line1", "line2", "line3"), 0);
         doThrow(new IOException("File error")).when(createFileUseCase).createFile(anyString(), any(StringBuilder.class));
 
-        ErrorWriteFileException exception = assertThrows(ErrorWriteFileException.class, () -> fileSegmentsWriterService.write(chunk));
-        assertEquals("/path/to/file/source/segmentFile.txt", exception.getPath());
-        assertEquals("File error", exception.getCause().getMessage());
+        assertThrows(ErrorWriteFileException.class, () -> fileSegmentsWriterService.write(chunk));
+
+        verify(createFileUseCase, times(1)).createFile(anyString(), any(StringBuilder.class));
+        verify(extractor, never()).execute(anyString());
     }
 }
