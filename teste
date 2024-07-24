@@ -1,3 +1,18 @@
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
+
+import com.santander.extractor.utils.ExtractorAdvice;
+import com.santander.mpa.domain.usecase.CreateFileUseCase;
+import com.santander.mpa.infra.InvoiceCnabBatchProperties;
+import com.santander.mpa.infra.exception.ErrorWriteFileException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.batch.item.Chunk;
+
 import java.io.IOException;
 
 @ExtendWith(MockitoExtension.class)
