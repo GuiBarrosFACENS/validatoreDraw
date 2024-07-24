@@ -1,78 +1,25 @@
-package com.santander.mpa.app.service.writers;
+C:\dev-tools-santander\jdk\jdk-17.0.10_windows-x64_bin\jdk-17.0.10\bin\java.exe -agentlib:jdwp=transport=dt_socket,address=127.0.0.1:64293,suspend=y,server=n -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\plugins\java\lib\rt\debugger-agent.jar=file:/C:/Users/X297629/AppData/Local/Temp/capture.props -Dfile.encoding=UTF-8 @C:\Users\X297629\AppData\Local\Temp\idea_arg_file1152902506 com.intellij.rt.junit.JUnitStarter -ideVersion5 -junit5 com.santander.mpa.app.service.writers.FileSegmentsWriterServiceTest,testWriteSuccess
+Connected to the target VM, address: '127.0.0.1:64293', transport: 'socket'
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
 
-import com.santander.extractor.utils.ExtractorAdvice;
-import com.santander.mpa.domain.usecase.CreateFileUseCase;
-import com.santander.mpa.infra.InvoiceCnabBatchProperties;
-import com.santander.mpa.infra.exception.ErrorWriteFileException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.batch.item.Chunk;
-import org.springframework.batch.item.ItemWriter;
+org.opentest4j.AssertionFailedError: 
+Expected :/path/to/file/source/segmentFile.txt
+Actual   :null/null
+<Click to see difference>
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:182)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:177)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
+	at com.santander.mpa.app.service.writers.FileSegmentsWriterServiceTest.testWriteSuccess(FileSegmentsWriterServiceTest.java:58)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
 
-public class FileSegmentsWriterServiceTest {
+Disconnected from the target VM, address: '127.0.0.1:64293', transport: 'socket'
 
-    @Mock
-    private CreateFileUseCase createFileUseCase;
-
-    @Mock
-    private ExtractorAdvice extractor;
-
-    @Mock
-    private InvoiceCnabBatchProperties invoiceCnabBatchProperties;
-
-    @InjectMocks
-    private FileSegmentsWriterService fileSegmentsWriterService;
-
-    @BeforeEach
-    public void setUp() {
-        MockitoAnnotations.openMocks(this);
-
-        when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/file/source");
-        when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("segmentFile.txt");
-    }
-
-    @Test
-    public void testWriteSuccess() throws IOException {
-        // Criando o Chunk mockado
-        Chunk<String> chunk = mock(Chunk.class);
-        when(chunk.getItems()).thenReturn(Arrays.asList("line1", "line2", "line3"));
-
-        fileSegmentsWriterService.write(chunk);
-
-        ArgumentCaptor<String> filePathCaptor = ArgumentCaptor.forClass(String.class);
-        ArgumentCaptor<StringBuilder> fileLinesCaptor = ArgumentCaptor.forClass(StringBuilder.class);
-
-        verify(createFileUseCase, times(1)).createFile(filePathCaptor.capture(), fileLinesCaptor.capture());
-
-        assertEquals("/path/to/file/source/segmentFile.txt", filePathCaptor.getValue());
-        assertEquals("line1line2line3", fileLinesCaptor.getValue().toString());
-
-        verify(extractor, times(1)).execute("telemetria_log_category");
-    }
-
-    @Test
-    public void testWriteThrowsIOException() throws IOException {
-        // Criando o Chunk mockado
-        Chunk<String> chunk = mock(Chunk.class);
-        when(chunk.getItems()).thenReturn(Arrays.asList("line1", "line2", "line3"));
-
-        doThrow(new IOException("File error")).when(createFileUseCase).createFile(anyString(), any(StringBuilder.class));
-
-        assertThrows(ErrorWriteFileException.class, () -> fileSegmentsWriterService.write(chunk));
-
-        verify(createFileUseCase, times(1)).createFile(anyString(), any(StringBuilder.class));
-        verify(extractor, never()).execute(anyString());
-    }
-}
+Process finished with exit code -1
