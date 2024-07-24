@@ -1,23 +1,67 @@
 package com.santander.mpa.app.service.processors;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import com.santander.extractor.utils.ExtractorAdvice;
 import com.santander.mpa.domain.usecase.FileSegmentsBuilderUseCase;
-import lombok.AllArgsConstructor;
-import org.jetbrains.annotations.NotNull;
-import org.springframework.batch.item.ItemProcessor;
-import org.springframework.stereotype.Service;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
-@Service
-@AllArgsConstructor
-public class FileSegmentsProcessorService implements ItemProcessor<String, String> {
+class FileSegmentsProcessorServiceTest {
 
-  private final FileSegmentsBuilderUseCase fileSegmentsBuilderUseCase;
-  private final ExtractorAdvice extractor;
+    @Mock
+    private FileSegmentsBuilderUseCase fileSegmentsBuilderUseCase;
 
-  @Override
-  public String process(@NotNull String line) {
-    ExtractorAdvice.put("data.data.mapAttributes.process", "process cnab");
-    extractor.execute("telemetria_log_category");
-    return this.fileSegmentsBuilderUseCase.processLine(line);
-  } 
+    @Mock
+    private ExtractorAdvice extractor;
+
+    @InjectMocks
+    private FileSegmentsProcessorService fileSegmentsProcessorService;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
+
+    @Test
+    void testProcessWithValidInput() {
+        // Mock the input and expected output
+        String input = "valid line";
+        String expectedOutput = "processed line";
+
+        // Mock the behavior of fileSegmentsBuilderUseCase
+        when(fileSegmentsBuilderUseCase.processLine(input)).thenReturn(expectedOutput);
+
+        // Call the method under test
+        String result = fileSegmentsProcessorService.process(input);
+
+        // Validate interactions and assertions
+        verify(extractor).execute("telemetria_log_category");
+        verify(fileSegmentsBuilderUseCase).processLine(input);
+        assertNotNull(result);
+        assertEquals(expectedOutput, result);
+    }
+
+    @Test
+    void testProcessThrowsException() {
+        // Mock the input
+        String input = "invalid line";
+
+        // Mock the behavior of fileSegmentsBuilderUseCase to throw an exception
+        when(fileSegmentsBuilderUseCase.processLine(input)).thenThrow(new RuntimeException("Test exception"));
+
+        // Call the method under test and verify exception
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            fileSegmentsProcessorService.process(input);
+        });
+
+        // Validate interactions
+        verify(extractor).execute("telemetria_log_category");
+        verify(fileSegmentsBuilderUseCase).processLine(input);
+        assertEquals("Test exception", exception.getMessage());
+    }
 }
