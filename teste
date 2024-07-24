@@ -1,73 +1,32 @@
-package com.santander.mpa.app.service.writers;
+C:\dev-tools-santander\jdk\jdk-17.0.10_windows-x64_bin\jdk-17.0.10\bin\java.exe -ea -Didea.test.cyclic.buffer.size=1048576 -javaagent:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\lib\idea_rt.jar=60994:C:\Users\X297629\Downloads\ideaIC-2024.1.1.win\bin -Dfile.encoding=UTF-8 @C:\Users\X297629\AppData\Local\Temp\idea_arg_file1010136839 com.intellij.rt.junit.JUnitStarter -ideVersion5 -junit5 com.santander.mpa.app.service.writers.FileSegmentsWriterServiceTest,testWriteSuccess
+Standard Commons Logging discovery in action with spring-jcl: please remove commons-logging.jar from classpath in order to avoid potential conflicts
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
 
-import com.santander.extractor.utils.ExtractorAdvice;
-import com.santander.mpa.domain.usecase.CreateFileUseCase;
-import com.santander.mpa.infra.InvoiceCnabBatchProperties;
-import com.santander.mpa.infra.exception.ErrorWriteFileException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.batch.item.Chunk;
-import org.springframework.batch.item.support.ListItemWriter;
+org.mockito.exceptions.misusing.PotentialStubbingProblem: 
+Strict stubbing argument mismatch. Please check:
+ - this invocation of 'createFile' method:
+    createFileUseCase.createFile(
+    "/path/to/file/source/segmentFile.txt",
+    line1line2line3
+);
+    -> at com.santander.mpa.app.service.writers.FileSegmentsWriterService.write(FileSegmentsWriterService.java:42)
+ - has following stubbing(s) with different arguments:
+    1. createFileUseCase.createFile(null, );
+      -> at com.santander.mpa.app.service.writers.FileSegmentsWriterServiceTest.testWriteSuccess(FileSegmentsWriterServiceTest.java:53)
+Typically, stubbing argument mismatch indicates user mistake when writing tests.
+Mockito fails early so that you can debug potential problem easily.
+However, there are legit scenarios when this exception generates false negative signal:
+  - stubbing the same method multiple times using 'given().will()' or 'when().then()' API
+    Please use 'will().given()' or 'doReturn().when()' API for stubbing.
+  - stubbed method is intentionally invoked with different arguments by code under test
+    Please use default or 'silent' JUnit Rule (equivalent of Strictness.LENIENT).
+For more information see javadoc for PotentialStubbingProblem class.
 
-import java.io.IOException;
-import java.util.Arrays;
+	at com.santander.mpa.app.service.writers.FileSegmentsWriterService.write(FileSegmentsWriterService.java:42)
+	at com.santander.mpa.app.service.writers.FileSegmentsWriterServiceTest.testWriteSuccess(FileSegmentsWriterServiceTest.java:55)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
-class FileSegmentsWriterServiceTest {
-
-    @Mock
-    private InvoiceCnabBatchProperties invoiceCnabBatchProperties;
-
-    @Mock
-    private CreateFileUseCase createFileUseCase;
-
-    @Mock
-    private ExtractorAdvice extractor;
-
-    @InjectMocks
-    private FileSegmentsWriterService fileSegmentsWriterService;
-
-    private String outputPath;
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-        outputPath = "/path/to/file/source/segmentFile.txt";
-        when(invoiceCnabBatchProperties.getFileSource()).thenReturn("/path/to/file/source");
-        when(invoiceCnabBatchProperties.getSegmentFileName()).thenReturn("segmentFile.txt");
-        fileSegmentsWriterService = new FileSegmentsWriterService(invoiceCnabBatchProperties, createFileUseCase, extractor);
-    }
-
-    @Test
-    void testWriteSuccess() throws IOException {
-        // Arrange
-        Chunk<String> lines = new Chunk<>(Arrays.asList("line1", "line2", "line3"));
-        doNothing().when(createFileUseCase).createFile(eq(outputPath), anyString());
-
-        // Act
-        fileSegmentsWriterService.write(lines);
-
-        // Assert
-        verify(createFileUseCase, times(1)).createFile(outputPath, "line1line2line3");
-        verify(extractor, times(1)).execute("telemetria_log_category");
-    }
-
-    @Test
-    void testWriteIOException() throws IOException {
-        // Arrange
-        Chunk<String> lines = new Chunk<>(Arrays.asList("line1", "line2", "line3"));
-        doThrow(new IOException("Error")).when(createFileUseCase).createFile(eq(outputPath), anyString());
-
-        // Act & Assert
-        assertThrows(ErrorWriteFileException.class, () -> fileSegmentsWriterService.write(lines));
-        verify(createFileUseCase, times(1)).createFile(outputPath, "line1line2line3");
-    }
-}
+Process finished with exit code -1
