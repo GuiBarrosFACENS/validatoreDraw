@@ -1,1 +1,46 @@
 
+X297629@N2418096 MINGW64 /c/kafka
+$ '/c/kafka/bin/connect-standalone.sh' '/c/kafka/config/connect-standalone.properties' '/c/kafka/config/postgres-connector.properties' &
+[1] 977
+
+X297629@N2418096 MINGW64 /c/kafka
+$ log4j:ERROR Could not read configuration file from URL [file:/c/kafka/bin/../config/connect-log4j.properties].
+java.io.FileNotFoundException: \c\kafka\bin\..\config\connect-log4j.properties (O sistema n▒o pode encontrar o caminho especificado)
+        at java.base/java.io.FileInputStream.open0(Native Method)
+        at java.base/java.io.FileInputStream.open(FileInputStream.java:216)
+        at java.base/java.io.FileInputStream.<init>(FileInputStream.java:157)
+        at java.base/java.io.FileInputStream.<init>(FileInputStream.java:111)
+        at java.base/sun.net.www.protocol.file.FileURLConnection.connect(FileURLConnection.java:86)
+        at java.base/sun.net.www.protocol.file.FileURLConnection.getInputStream(FileURLConnection.java:189)
+        at org.apache.log4j.PropertyConfigurator.doConfigure(PropertyConfigurator.java:532)
+        at org.apache.log4j.helpers.OptionConverter.selectAndConfigure(OptionConverter.java:485)
+        at org.apache.log4j.LogManager.<clinit>(LogManager.java:115)
+        at org.slf4j.impl.Reload4jLoggerFactory.<init>(Reload4jLoggerFactory.java:67)
+        at org.slf4j.impl.StaticLoggerBinder.<init>(StaticLoggerBinder.java:72)
+        at org.slf4j.impl.StaticLoggerBinder.<clinit>(StaticLoggerBinder.java:45)
+        at org.slf4j.LoggerFactory.bind(LoggerFactory.java:150)
+        at org.slf4j.LoggerFactory.performInitialization(LoggerFactory.java:124)
+        at org.slf4j.LoggerFactory.getILoggerFactory(LoggerFactory.java:417)
+        at org.slf4j.LoggerFactory.getLogger(LoggerFactory.java:362)
+        at org.slf4j.LoggerFactory.getLogger(LoggerFactory.java:388)
+        at org.apache.kafka.connect.cli.AbstractConnectCli.<clinit>(AbstractConnectCli.java:46)
+log4j:ERROR Ignoring configuration file [file:/c/kafka/bin/../config/connect-log4j.properties].
+log4j:WARN No appenders could be found for logger (org.apache.kafka.connect.cli.AbstractConnectCli).
+log4j:WARN Please initialize the log4j system properly.
+log4j:WARN See http://logging.apache.org/log4j/1.2/faq.html#noconfig for more info.
+jul. 25, 2024 9:40:46 AM org.glassfish.jersey.internal.inject.Providers checkProviderRuntime
+WARNING: A provider org.apache.kafka.connect.runtime.rest.resources.RootResource registered in SERVER runtime does not implement any provider interfaces applicable in the SERVER runtime. Due to constraint configuration problems the provider org.apache.kafka.connect.runtime.rest.resources.RootResource will be ignored.
+jul. 25, 2024 9:40:46 AM org.glassfish.jersey.internal.inject.Providers checkProviderRuntime
+WARNING: A provider org.apache.kafka.connect.runtime.rest.resources.ConnectorsResource registered in SERVER runtime does not implement any provider interfaces applicable in the SERVER runtime. Due to constraint configuration problems the provider org.apache.kafka.connect.runtime.rest.resources.ConnectorsResource will be ignored.
+jul. 25, 2024 9:40:46 AM org.glassfish.jersey.internal.inject.Providers checkProviderRuntime
+WARNING: A provider org.apache.kafka.connect.runtime.rest.resources.InternalConnectResource registered in SERVER runtime does not implement any provider interfaces applicable in the SERVER runtime. Due to constraint configuration problems the provider org.apache.kafka.connect.runtime.rest.resources.InternalConnectResource will be ignored.
+jul. 25, 2024 9:40:46 AM org.glassfish.jersey.internal.inject.Providers checkProviderRuntime
+WARNING: A provider org.apache.kafka.connect.runtime.rest.resources.ConnectorPluginsResource registered in SERVER runtime does not implement any provider interfaces applicable in the SERVER runtime. Due to constraint configuration problems the provider org.apache.kafka.connect.runtime.rest.resources.ConnectorPluginsResource will be ignored.
+jul. 25, 2024 9:40:46 AM org.glassfish.jersey.internal.inject.Providers checkProviderRuntime
+WARNING: A provider org.apache.kafka.connect.runtime.rest.resources.LoggingResource registered in SERVER runtime does not implement any provider interfaces applicable in the SERVER runtime. Due to constraint configuration problems the provider org.apache.kafka.connect.runtime.rest.resources.LoggingResource will be ignored.
+jul. 25, 2024 9:40:46 AM org.glassfish.jersey.internal.Errors logErrors
+WARNING: The following warnings have been detected: WARNING: The (sub)resource method listLoggers in org.apache.kafka.connect.runtime.rest.resources.LoggingResource contains empty path annotation.
+WARNING: The (sub)resource method createConnector in org.apache.kafka.connect.runtime.rest.resources.ConnectorsResource contains empty path annotation.
+WARNING: The (sub)resource method listConnectors in org.apache.kafka.connect.runtime.rest.resources.ConnectorsResource contains empty path annotation.
+WARNING: The (sub)resource method listConnectorPlugins in org.apache.kafka.connect.runtime.rest.resources.ConnectorPluginsResource contains empty path annotation.
+WARNING: The (sub)resource method serverInfo in org.apache.kafka.connect.runtime.rest.resources.RootResource contains empty path annotation.
