@@ -32,8 +32,7 @@ class ItemProcessorCustomServiceTest {
     MockitoAnnotations.openMocks(this);
   }
 
-  @Test
-  void testProcessWithValidInput() {
+  private InvoicePaymentFileDTO createInvoicePaymentFileDTO() {
     FileDetailsDTO fileDetailsDTO = mock(FileDetailsDTO.class);
     InvoiceDetailsDTO invoiceDetailsDTO = mock(InvoiceDetailsDTO.class);
     InvoicePaymentDetailsDTO invoicePaymentDetailsDTO = mock(InvoicePaymentDetailsDTO.class);
@@ -42,6 +41,13 @@ class ItemProcessorCustomServiceTest {
     invoicePaymentFileDTO.setFileDetailsDTO(fileDetailsDTO);
     invoicePaymentFileDTO.setInvoiceDetailsDTO(invoiceDetailsDTO);
     invoicePaymentFileDTO.setInvoicePaymentDetailsDTO(invoicePaymentDetailsDTO);
+    
+    return invoicePaymentFileDTO;
+  }
+
+  @Test
+  void testProcessWithValidInput() {
+    InvoicePaymentFileDTO invoicePaymentFileDTO = createInvoicePaymentFileDTO();
 
     InvoicePaymentFile expectedInvoicePaymentFile = new InvoicePaymentFile();
     when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenReturn(expectedInvoicePaymentFile);
@@ -56,14 +62,7 @@ class ItemProcessorCustomServiceTest {
 
   @Test
   void testProcessThrowsException() {
-    FileDetailsDTO fileDetailsDTO = mock(FileDetailsDTO.class);
-    InvoiceDetailsDTO invoiceDetailsDTO = mock(InvoiceDetailsDTO.class);
-    InvoicePaymentDetailsDTO invoicePaymentDetailsDTO = mock(InvoicePaymentDetailsDTO.class);
-
-    InvoicePaymentFileDTO invoicePaymentFileDTO = new InvoicePaymentFileDTO();
-    invoicePaymentFileDTO.setFileDetailsDTO(fileDetailsDTO);
-    invoicePaymentFileDTO.setInvoiceDetailsDTO(invoiceDetailsDTO);
-    invoicePaymentFileDTO.setInvoicePaymentDetailsDTO(invoicePaymentDetailsDTO);
+    InvoicePaymentFileDTO invoicePaymentFileDTO = createInvoicePaymentFileDTO();
 
     when(invoicePaymentFileMapper.toEntity(invoicePaymentFileDTO)).thenThrow(new RuntimeException("Test exception"));
 
