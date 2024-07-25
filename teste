@@ -1,55 +1,45 @@
-O erro que você está vendo indica que o arquivo de configuração connect-log4j.properties não foi encontrado no caminho especificado. Vamos resolver isso verificando se o arquivo está no lugar correto e configurando adequadamente o log4j.
+#!/bin/bash
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-Verificando e Corrigindo a Configuração do log4j
-Verifique o Arquivo de Configuração:
+if [ $# -lt 1 ];
+then
+        echo "USAGE: $0 [-daemon] connect-standalone.properties [connector1.properties connector2.json ...]"
+        exit 1
+fi
 
-Certifique-se de que o arquivo connect-log4j.properties está presente no diretório config dentro do seu diretório Kafka. Se ele não estiver lá, você pode criar ou copiar de outra instalação.
+base_dir=$(dirname $0)
 
-sh
-Copiar código
-cd /c/kafka/config
-ls connect-log4j.properties
-Se o arquivo não estiver presente, você pode criar um arquivo básico de configuração do log4j com o seguinte conteúdo:
+if [ "x$KAFKA_LOG4J_OPTS" = "x" ]; then
+    export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:$base_dir/../config/connect-log4j.properties"
+fi
 
-properties
-Copiar código
-log4j.rootLogger=INFO, stdout
-log4j.appender.stdout=org.apache.log4j.ConsoleAppender
-log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
-log4j.appender.stdout.layout.ConversionPattern=%d{ISO8601} %-5p %c{2} - %m%n
-Salve esse conteúdo no arquivo connect-log4j.properties dentro do diretório config.
+if [ "x$KAFKA_HEAP_OPTS" = "x" ]; then
+  export KAFKA_HEAP_OPTS="-Xms256M -Xmx2G"
+fi
 
-Verifique o Caminho no Script:
+EXTRA_ARGS=${EXTRA_ARGS-'-name connectStandalone'}
 
-Verifique se o script connect-standalone.sh está apontando para o caminho correto do arquivo de configuração connect-log4j.properties.
+COMMAND=$1
+case $COMMAND in
+  -daemon)
+    EXTRA_ARGS="-daemon "$EXTRA_ARGS
+    shift
+    ;;
+  *)
+    ;;
+esac
 
-Abra o arquivo connect-standalone.sh e procure por uma linha que configura o log4j:
-
-sh
-Copiar código
-KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:$base_dir/../config/connect-log4j.properties"
-Certifique-se de que o caminho está correto, de acordo com a estrutura do seu diretório.
-
-Configuração do Conector para PostgreSQL
-Certifique-se de que o arquivo de configuração do conector postgres-connector.properties está correto. Aqui está um exemplo de configuração para PostgreSQL:
-
-properties
-Copiar código
-name=dbserver1
-connector.class=io.debezium.connector.postgresql.PostgresConnector
-tasks.max=1
-database.hostname=localhost
-database.port=5432
-database.user=postgres
-database.password=postgres
-database.dbname=mydb
-database.server.name=fullfillment
-Rodando o Conector Debezium
-Depois de verificar e corrigir as configurações, tente rodar o conector novamente:
-
-Inicie o Conector:
-
-sh
-Copiar código
-bin/connect-standalone.sh config/connect-standalone.properties config/postgres-connector.properties
-Isso deve resolver o problema de configuração do log4j. Se você ainda encontrar problemas, por favor, forneça mais detalhes para que eu possa ajudar melhor.
+exec $(dirname $0)/kafka-run-class.sh $EXTRA_ARGS org.apache.kafka.connect.cli.ConnectStandalone "$@"
