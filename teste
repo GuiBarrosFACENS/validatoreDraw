@@ -252,3 +252,12 @@ public class BatchConfiguration {
     return new FileSegmentsBuilderUseCaseImpl();
   }
 }
+
+
+
+11:41:36.367[duling-1] WARN      c.s.m.i.config.ScheduleConfiguration  :  :  : scheduler starts at AAAA********AQUIIIIIIIIIIIII*********2024-07-25T11:41:36.367596
+11:41:36.374[duling-1] INFO       o.s.b.c.l.support.SimpleJobLauncher  :  :  : Job: [SimpleJob: [name=processJob]] launched with the following parameters: [{}]
+11:41:36.379[duling-1] INFO      o.s.batch.core.job.SimpleStepHandler  :  :  : Step already complete or not restartable, so no action to execute: StepExecution: id=1, version=5, name=mergeInvoiceSegmentsLinesStep, status=COMPLETED, exitStatus=COMPLETED, readCount=8, filterCount=6, writeCount=2 readSkipCount=0, writeSkipCount=0, processSkipCount=0, commitCount=3, rollbackCount=0, exitDescription=
+11:41:36.382[duling-1] INFO      o.s.batch.core.job.SimpleStepHandler  :  :  : Step already complete or not restartable, so no action to execute: StepExecution: id=2, version=7, name=sendKafkaStep, status=COMPLETED, exitStatus=COMPLETED, readCount=2, filterCount=0, writeCount=2 readSkipCount=0, writeSkipCount=0, processSkipCount=0, commitCount=5, rollbackCount=0, exitDescription=
+11:41:36.383[duling-1] INFO      o.s.batch.core.job.SimpleStepHandler  :  :  : Step already complete or not restartable, so no action to execute: StepExecution: id=3, version=3, name=fileDeletingStep, status=COMPLETED, exitStatus=COMPLETED, readCount=0, filterCount=0, writeCount=0 readSkipCount=0, writeSkipCount=0, processSkipCount=0, commitCount=1, rollbackCount=0, exitDescription=
+11:41:36.385[duling-1] INFO       o.s.b.c.l.support.SimpleJobLauncher  :  :  : Job: [SimpleJob: [name=processJob]] completed with the following parameters: [{}] and the following status: [COMPLETED] in 9ms
