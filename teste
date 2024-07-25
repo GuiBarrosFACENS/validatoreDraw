@@ -1,3 +1,16 @@
+    @Scheduled(fixedRate = 20000)
+    public void launchJob() throws Exception {
+        LocalDateTime date = LocalDateTime.now();
+        logger.warn("scheduler starts at AAAA********AQUIIIIIIIIIIIII*********" + date);
+
+        JobParametersBuilder jobParametersBuilder = new JobParametersBuilder();
+        jobParametersBuilder.addDate("runDate", new Date());  // Parâmetro único
+
+        JobExecution jobExecution = jobLauncher.run(processJob, jobParametersBuilder.toJobParameters());
+        logger.debug("Batch job ends with status as " + jobExecution.getStatus());
+    }
+
+
 package com.santander.mpa.infra.config;
 
 import org.slf4j.Logger;
