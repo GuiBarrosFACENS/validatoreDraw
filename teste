@@ -1,2 +1,2 @@
-# Adicione esta linha antes do comando exec
 export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:/c/kafka/config/connect-log4j.properties"
+bin/connect-standalone.sh config/connect-standalone.properties config/postgres-connector.properties
