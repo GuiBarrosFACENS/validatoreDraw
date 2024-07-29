@@ -1,1 +1,208 @@
-a
+import java.time.LocalDateTime;
+import java.util.Date;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.batch.core.*;
+import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+@Component
+@EnableScheduling
+public class ScheduleConfiguration {
+
+  private static final Logger logger = LoggerFactory.getLogger(ScheduleConfiguration.class);
+
+  private JobLauncher jobLauncher;
+
+  private Job processJob;
+
+  public ScheduleConfiguration(JobLauncher jobLauncher, Job processJob) {
+    this.jobLauncher = jobLauncher;
+    this.processJob = processJob;
+  }
+
+  // TODO arrumar Scheduled se for usar atualmente a cada 3 hrs
+  @Scheduled(fixedRate = 10800000)
+  public void launchJob() throws Exception {
+    LocalDateTime date = LocalDateTime.now();
+    logger.info("scheduler starts at " + date);
+
+    JobParametersBuilder jobParametersBuilder = new JobParametersBuilder();
+    jobParametersBuilder.addDate("runDate", new Date());
+
+    JobExecution jobExecution = jobLauncher.run(processJob, jobParametersBuilder.toJobParameters());
+    logger.info("Batch job ends with status as " + jobExecution.getStatus());
+  }
+}
+
+
+---
+
+
+@Configuration
+@ComponentScan(basePackages = {"com.santander.mpa", "com.santander.extractor"})
+@EnableConfigurationProperties(CustomPropertiesExtratorConfiguration.class)
+public class BatchConfiguration {
+
+  private final String source;
+  private final String segmentFileName;
+  private final String cnabFileName;
+
+  public BatchConfiguration(InvoiceCnabBatchProperties invoiceCnabBatchProperties) {
+    this.source = invoiceCnabBatchProperties.getFileSource();
+    this.segmentFileName = invoiceCnabBatchProperties.getSegmentFileName();
+    this.cnabFileName = invoiceCnabBatchProperties.getCnabFileName();
+  }
+
+  @Bean
+  public FlatFileItemReader<InvoicePaymentFileDTO> fileSegmentsItemReader(LineMapper lineMapper) {
+    String outputPath = String.format("%s/%s", source, segmentFileName);
+    return new FlatFileItemReaderBuilder<InvoicePaymentFileDTO>()
+        .resource(new FileSystemResource(outputPath))
+        .lineMapper((line, lineNumber) -> lineMapper.convert(line))
+        .name("readerFileSegments")
+        .build();
+  }
+
+  @Bean
+  public FlatFileItemReader<String> fileCnabItemReader() {
+    return new FlatFileItemReaderBuilder<String>()
+        .resource(new ClassPathResource(cnabFileName))
+        .lineMapper((line, lineNumber) -> line)
+        .name("readerFiler")
+        .build();
+  }
+
+  @Bean
+  public Step mergeInvoiceSegmentsLinesStep(
+      JobRepository jobRepository,
+      PlatformTransactionManager transactionManager,
+      FlatFileItemReader<String> fileCnabItemReader,
+      ItemProcessor<String, String> fileSegmentsProcessorService,
+      FileSegmentsWriterService fileSegmentsWriterService,
+      StepExecutionListener stepExecutionListener,
+      ChunkListener chunkListener) {
+    StepBuilder stepBuilder = new StepBuilder("mergeInvoiceSegmentsLinesStep", jobRepository);
+
+    return stepBuilder
+        .<String, String>chunk(4, transactionManager)
+        .reader(fileCnabItemReader)
+        .processor(fileSegmentsProcessorService)
+        .writer(fileSegmentsWriterService)
+        .listener(stepExecutionListener)
+        .listener(chunkListener)
+        .build();
+  }
+
+  @Bean
+  public Step sendKafkaStep(
+      JobRepository jobRepository,
+      PlatformTransactionManager transactionManager,
+      FlatFileItemReader<InvoicePaymentFileDTO> fileSegmentsItemReader,
+      ItemProcessor<InvoicePaymentFileDTO, InvoicePaymentFile> itemProcessorCustomService,
+      KafkaWriterCustomService kafkaWriterCustomService,
+      TaskExecutor taskExecutor,
+      StepExecutionListener stepExecutionListener,
+      ChunkListener chunkListener) {
+    StepBuilder stepBuilder = new StepBuilder("sendKafkaStep", jobRepository);
+
+    return stepBuilder
+        .<InvoicePaymentFileDTO, InvoicePaymentFile>chunk(5000, transactionManager)
+        .reader(fileSegmentsItemReader)
+        .processor(itemProcessorCustomService)
+        .writer(kafkaWriterCustomService)
+        .taskExecutor(taskExecutor)
+        .listener(stepExecutionListener)
+        .listener(chunkListener)
+        .build();
+  }
+
+  @Bean
+  public Step fileDeletingStep(
+      JobRepository jobRepository,
+      PlatformTransactionManager transactionManager,
+      Tasklet deleteFileTaskletService,
+      StepExecutionListener stepExecutionListener) {
+    StepBuilder stepBuilder = new StepBuilder("fileDeletingStep", jobRepository);
+    return stepBuilder
+        .tasklet(deleteFileTaskletService, transactionManager)
+        .listener(stepExecutionListener)
+        .build();
+  }
+
+  @Bean
+  public Job processJob(
+      JobRepository jobRepository,
+      Step mergeInvoiceSegmentsLinesStep,
+      Step sendKafkaStep,
+      Step fileDeletingStep) {
+    return new JobBuilder("processJob", jobRepository)
+        .incrementer(new RunIdIncrementer())
+        .start(mergeInvoiceSegmentsLinesStep)
+        .next(sendKafkaStep)
+        .next(fileDeletingStep)
+        .build();
+  }
+
+  @Bean
+  public ObjectMapper objectMapper() {
+    ObjectMapper objectMapper = new ObjectMapper();
+    objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    objectMapper.registerModule(new JavaTimeModule());
+    objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    return objectMapper;
+  }
+
+  @Bean
+  public TaskExecutor taskExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(5);
+    executor.setMaxPoolSize(5);
+    executor.setThreadNamePrefix("spring_batch_thread-");
+    executor.initialize();
+    return executor;
+  }
+
+  @Bean
+  public StepExecutionListener stepExecutionListener(ExtractorAdvice extractorAdvice) {
+    return new LoggerStepListener(extractorAdvice);
+  }
+
+
+
+---
+
+import org.springframework.batch.test.JobLauncherTestUtils;
+import org.springframework.batch.test.context.SpringBatchTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringRunner;
+
+@ActiveProfiles("test")
+@RunWith(SpringRunner.class)
+@EmbeddedKafka(
+    partitions = 1,
+    brokerProperties = {"listeners=PLAINTEXT://localhost:9092", "port=9092"})
+@SpringBatchTest
+@SpringBootTest
+@ContextConfiguration(classes = {BatchConfiguration.class})
+@Slf4j
+@Disabled("Teste desabilitado devido falta do kafka na pipeline")
+class KafkaProviderTest {
+
+  @Autowired private KafkaConsumerProvider consumer;
+
+  @Autowired private JobLauncherTestUtils jobLauncherTestUtils;
+
+  @Test
+  void sendTopic() throws Exception {
+    Assertions.assertDoesNotThrow(() -> jobLauncherTestUtils.launchJob());
+    consumer.getLatch().await(3L, TimeUnit.SECONDS);
+    Assertions.assertEquals(0, consumer.getLatch().getCount());
+  }
+}
