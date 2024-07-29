@@ -1,240 +1,310 @@
-import java.time.LocalDateTime;
-import java.util.Date;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.batch.core.*;
-import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
-
-@Component
-@EnableScheduling
-public class ScheduleConfiguration {
-
-  private static final Logger logger = LoggerFactory.getLogger(ScheduleConfiguration.class);
-
-  private JobLauncher jobLauncher;
-
-  private Job processJob;
-
-  public ScheduleConfiguration(JobLauncher jobLauncher, Job processJob) {
-    this.jobLauncher = jobLauncher;
-    this.processJob = processJob;
-  }
-
-  // TODO arrumar Scheduled se for usar atualmente a cada 3 hrs
-  @Scheduled(fixedRate = 10800000)
-  public void launchJob() throws Exception {
-    LocalDateTime date = LocalDateTime.now();
-    logger.info("scheduler starts at " + date);
-
-    JobParametersBuilder jobParametersBuilder = new JobParametersBuilder();
-    jobParametersBuilder.addDate("runDate", new Date());
-
-    JobExecution jobExecution = jobLauncher.run(processJob, jobParametersBuilder.toJobParameters());
-    logger.info("Batch job ends with status as " + jobExecution.getStatus());
-  }
-}
-
-
----
-
-
-@Configuration
-@ComponentScan(basePackages = {"com.santander.mpa", "com.santander.extractor"})
-@EnableConfigurationProperties(CustomPropertiesExtratorConfiguration.class)
-public class BatchConfiguration {
-
-  private final String source;
-  private final String segmentFileName;
-  private final String cnabFileName;
-
-  public BatchConfiguration(InvoiceCnabBatchProperties invoiceCnabBatchProperties) {
-    this.source = invoiceCnabBatchProperties.getFileSource();
-    this.segmentFileName = invoiceCnabBatchProperties.getSegmentFileName();
-    this.cnabFileName = invoiceCnabBatchProperties.getCnabFileName();
-  }
-
-  @Bean
-  public FlatFileItemReader<InvoicePaymentFileDTO> fileSegmentsItemReader(LineMapper lineMapper) {
-    String outputPath = String.format("%s/%s", source, segmentFileName);
-    return new FlatFileItemReaderBuilder<InvoicePaymentFileDTO>()
-        .resource(new FileSystemResource(outputPath))
-        .lineMapper((line, lineNumber) -> lineMapper.convert(line))
-        .name("readerFileSegments")
-        .build();
-  }
-
-  @Bean
-  public FlatFileItemReader<String> fileCnabItemReader() {
-    return new FlatFileItemReaderBuilder<String>()
-        .resource(new ClassPathResource(cnabFileName))
-        .lineMapper((line, lineNumber) -> line)
-        .name("readerFiler")
-        .build();
-  }
-
-  @Bean
-  public Step mergeInvoiceSegmentsLinesStep(
-      JobRepository jobRepository,
-      PlatformTransactionManager transactionManager,
-      FlatFileItemReader<String> fileCnabItemReader,
-      ItemProcessor<String, String> fileSegmentsProcessorService,
-      FileSegmentsWriterService fileSegmentsWriterService,
-      StepExecutionListener stepExecutionListener,
-      ChunkListener chunkListener) {
-    StepBuilder stepBuilder = new StepBuilder("mergeInvoiceSegmentsLinesStep", jobRepository);
-
-    return stepBuilder
-        .<String, String>chunk(4, transactionManager)
-        .reader(fileCnabItemReader)
-        .processor(fileSegmentsProcessorService)
-        .writer(fileSegmentsWriterService)
-        .listener(stepExecutionListener)
-        .listener(chunkListener)
-        .build();
-  }
-
-  @Bean
-  public Step sendKafkaStep(
-      JobRepository jobRepository,
-      PlatformTransactionManager transactionManager,
-      FlatFileItemReader<InvoicePaymentFileDTO> fileSegmentsItemReader,
-      ItemProcessor<InvoicePaymentFileDTO, InvoicePaymentFile> itemProcessorCustomService,
-      KafkaWriterCustomService kafkaWriterCustomService,
-      TaskExecutor taskExecutor,
-      StepExecutionListener stepExecutionListener,
-      ChunkListener chunkListener) {
-    StepBuilder stepBuilder = new StepBuilder("sendKafkaStep", jobRepository);
-
-    return stepBuilder
-        .<InvoicePaymentFileDTO, InvoicePaymentFile>chunk(5000, transactionManager)
-        .reader(fileSegmentsItemReader)
-        .processor(itemProcessorCustomService)
-        .writer(kafkaWriterCustomService)
-        .taskExecutor(taskExecutor)
-        .listener(stepExecutionListener)
-        .listener(chunkListener)
-        .build();
-  }
-
-  @Bean
-  public Step fileDeletingStep(
-      JobRepository jobRepository,
-      PlatformTransactionManager transactionManager,
-      Tasklet deleteFileTaskletService,
-      StepExecutionListener stepExecutionListener) {
-    StepBuilder stepBuilder = new StepBuilder("fileDeletingStep", jobRepository);
-    return stepBuilder
-        .tasklet(deleteFileTaskletService, transactionManager)
-        .listener(stepExecutionListener)
-        .build();
-  }
-
-  @Bean
-  public Job processJob(
-      JobRepository jobRepository,
-      Step mergeInvoiceSegmentsLinesStep,
-      Step sendKafkaStep,
-      Step fileDeletingStep) {
-    return new JobBuilder("processJob", jobRepository)
-        .incrementer(new RunIdIncrementer())
-        .start(mergeInvoiceSegmentsLinesStep)
-        .next(sendKafkaStep)
-        .next(fileDeletingStep)
-        .build();
-  }
-
-  @Bean
-  public ObjectMapper objectMapper() {
-    ObjectMapper objectMapper = new ObjectMapper();
-    objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-    objectMapper.registerModule(new JavaTimeModule());
-    objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-    return objectMapper;
-  }
-
-  @Bean
-  public TaskExecutor taskExecutor() {
-    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-    executor.setCorePoolSize(5);
-    executor.setMaxPoolSize(5);
-    executor.setThreadNamePrefix("spring_batch_thread-");
-    executor.initialize();
-    return executor;
-  }
-
-  @Bean
-  public StepExecutionListener stepExecutionListener(ExtractorAdvice extractorAdvice) {
-    return new LoggerStepListener(extractorAdvice);
-  }
-
-
-
----
-
-import org.springframework.batch.test.JobLauncherTestUtils;
-import org.springframework.batch.test.context.SpringBatchTest;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.kafka.test.context.EmbeddedKafka;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
-
-@ActiveProfiles("test")
-@RunWith(SpringRunner.class)
-@EmbeddedKafka(
-    partitions = 1,
-    brokerProperties = {"listeners=PLAINTEXT://localhost:9092", "port=9092"})
-@SpringBatchTest
-@SpringBootTest
-@ContextConfiguration(classes = {BatchConfiguration.class})
-@Slf4j
-@Disabled("Teste desabilitado devido falta do kafka na pipeline")
-class KafkaProviderTest {
-
-  @Autowired private KafkaConsumerProvider consumer;
-
-  @Autowired private JobLauncherTestUtils jobLauncherTestUtils;
-
-  @Test
-  void sendTopic() throws Exception {
-    Assertions.assertDoesNotThrow(() -> jobLauncherTestUtils.launchJob());
-    consumer.getLatch().await(3L, TimeUnit.SECONDS);
-    Assertions.assertEquals(0, consumer.getLatch().getCount());
-  }
-}
-
---
-
-
-2024-07-29 09:52:49 INFO  c.s.m.i.m.i.KafkaConsumerProvider - [CONSUMER-CNAB]: received payload='"{\"contractId\":null,\"invoiceInfo\":{\"paymentType\":5,\"externalReference\":\"8191560001412\"},\"paymentDate\":\"2024-05-21\",\"dueDate\":\"2024-05-14\",\"paymentAmount\":{\"amount\":1042.74,\"currency\":\"BRL\",\"numericCurrency\":\"00\"},\"paymentDetails\":{\"minimumPaymentAmountDTO\":{\"amount\":1042.74,\"currency\":\"BRL\",\"numericCurrency\":\"00\"},\"accountHolderName\":\"WITYAE CUBEMSU GHOUAR                   \",\"franchiseChannelCode\":null,\"movementDate\":null,\"movementType\":null,\"recordSize\":null,\"ourNumberVerifyingDigit\":null,\"launchCode\":null,\"documentNumber\":null,\"assignorCode\":null,\"cmc7BankCheck\":null,\"creditUnlockDate\":null,\"paymentChannelCode\":null,\"paymentMethodCode\":null,\"transactionNsu\":null,\"postType\":null,\"numericBarCode\":\"0330090049936981915600001412022697160000104274\",\"flagNumber\":null,\"cardholderName\":null,\"channelCode\":null,\"networkCode\":null,\"correlationId\":null,\"localOperReference\":null,\"documentType\":null}}"'
-09:52:49.268[#0-0-C-1] INFO         c.s.m.i.m.i.KafkaConsumerProvider  :  :  : [CONSUMER-CNAB]: received payload='"{\"contractId\":null,\"invoiceInfo\":{\"paymentType\":5,\"externalReference\":\"8241420001203\"},\"paymentDate\":\"2024-05-21\",\"dueDate\":\"2024-06-05\",\"paymentAmount\":{\"amount\":0.0,\"currency\":\"BRL\",\"numericCurrency\":\"00\"},\"paymentDetails\":{\"minimumPaymentAmountDTO\":{\"amount\":0.0,\"currency\":\"BRL\",\"numericCurrency\":\"00\"},\"accountHolderName\":\"AMSDUAH K.A                             \",\"franchiseChannelCode\":null,\"movementDate\":null,\"movementType\":null,\"recordSize\":null,\"ourNumberVerifyingDigit\":null,\"launchCode\":null,\"documentNumber\":null,\"assignorCode\":null,\"cmc7BankCheck\":null,\"creditUnlockDate\":null,\"paymentChannelCode\":null,\"paymentMethodCode\":null,\"transactionNsu\":null,\"postType\":null,\"numericBarCode\":\"0330090049936982414207001203025897380000000000\",\"flagNumber\":null,\"cardholderName\":null,\"channelCode\":null,\"networkCode\":null,\"correlationId\":null,\"localOperReference\":null,\"documentType\":null}}"'
-09:52:49.268[duling-1] ERROR         o.s.batch.core.step.AbstractStep  :  :  : Encountered an error executing step sendKafkaStep in job processJob
-org.springframework.batch.item.file.FlatFileParseException: Parsing error at line: 3 in resource=[file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\src\test\resources\s3-bucket-test\arquivo-segmento-teste.txt]], input=[0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      004928369]
+09:58:39.610 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.santander.mpa.infra.messageprovider.integration.KafkaProviderMockTest]: KafkaProviderMockTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+09:58:39.938 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.santander.mpa.ArsenalApplication for test class com.santander.mpa.infra.messageprovider.integration.KafkaProviderMockTest
+2024-07-29 09:58:42 INFO  c.s.m.i.m.i.KafkaProviderMockTest - Starting KafkaProviderMockTest using Java 17.0.10 with PID 15572 (started by X297629 in C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch)
+09:58:42.658[    main] INFO         c.s.m.i.m.i.KafkaProviderMockTest  :  :  : Starting KafkaProviderMockTest using Java 17.0.10 with PID 15572 (started by X297629 in C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch)
+2024-07-29 09:58:42 INFO  c.s.m.i.m.i.KafkaProviderMockTest - The following 1 profile is active: "test"
+09:58:42.660[    main] INFO         c.s.m.i.m.i.KafkaProviderMockTest  :  :  : The following 1 profile is active: "test"
+2024-07-29 09:58:47 INFO  c.s.e.c.CustomExtractorConfiguration - Starting Extractor configuration based on client properties configuration.
+09:58:47.081[    main] INFO      c.s.e.c.CustomExtractorConfiguration  :  :  : Starting Extractor configuration based on client properties configuration.
+2024-07-29 09:58:47 INFO  c.s.e.c.CustomExtractorConfiguration - Extractor configuration successfully loaded: com.santander.extractor.model.ExtractorsRoot@46756a5b
+09:58:47.346[    main] INFO      c.s.e.c.CustomExtractorConfiguration  :  :  : Extractor configuration successfully loaded: com.santander.extractor.model.ExtractorsRoot@46756a5b
+2024-07-29 09:58:56 INFO  c.s.m.i.m.i.KafkaProviderMockTest - Started KafkaProviderMockTest in 16.643 seconds (process running for 23.514)
+09:58:56.963[    main] INFO         c.s.m.i.m.i.KafkaProviderMockTest  :  :  : Started KafkaProviderMockTest in 16.643 seconds (process running for 23.514)
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.656[thread-3] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.656[thread-3] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=153e31ef-7c28-4c9d-a448-15410d383bd1, eventTime=2024-07-29T09:58:57.652-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=process cnab cache}]))
+09:58:57.656[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"process cnab cache"}}}}
+09:58:57.656[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+09:58:57.656[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+09:58:57.656[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6ImQ3ODY5OGJmLWY0NDMtNDZiOS1iNDU0LWQ2NmE2MmM3YzEyYyIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNjUxLTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6InByb2Nlc3MgY25hYiBjYWNoZSJ9fX19
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+09:58:57.663[thread-4] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=d78698bf-f443-46b9-b454-d66a62c7c12c, eventTime=2024-07-29T09:58:57.651-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=process cnab cache}]))
+09:58:57.664[thread-4] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=d78698bf-f443-46b9-b454-d66a62c7c12c, eventTime=2024-07-29T09:58:57.651-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=process cnab cache}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"process cnab cache"}}}}
+09:58:57.665[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"process cnab cache"}}}}
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6ImQ5Mjg1NmVlLTljMzktNGNlZi05ZDE5LWZiNmI0MjNlMzA4MSIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNjU3LTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6InByb2Nlc3MgY25hYiBjYWNoZSJ9fX19
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=d92856ee-9c39-4cef-9d19-fb6b423e3081, eventTime=2024-07-29T09:58:57.657-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=process cnab cache}]))
+09:58:57.666[thread-3] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.667[thread-3] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=d92856ee-9c39-4cef-9d19-fb6b423e3081, eventTime=2024-07-29T09:58:57.657-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=process cnab cache}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"process cnab cache"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+09:58:57.705[thread-4] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=d6a8712e-c974-44d3-a30f-f625f393008d, eventTime=2024-07-29T09:58:57.701-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.705[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.705[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6IjE0N2Y5MWVlLWZiOWItNDkyOS04NTc1LWU3Mjk1NGQ5NDk0NiIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzAzLTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=147f91ee-fb9b-4929-8575-e72954d94946, eventTime=2024-07-29T09:58:57.703-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+09:58:57.707[thread-3] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.708[thread-3] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=147f91ee-fb9b-4929-8575-e72954d94946, eventTime=2024-07-29T09:58:57.703-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.708[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.708[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+09:58:57.710[thread-4] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+09:58:57.711[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+09:58:57.711[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+09:58:57.712[thread-3] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.712[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+09:58:57.712[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6IjE1YmE3ZTg4LTAwMzgtNGJlNC05YWU4LWQyNTE5OWQ1NTMwYiIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzEyLTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+09:58:57.718[thread-4] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=15ba7e88-0038-4be4-9ae8-d25199d5530b, eventTime=2024-07-29T09:58:57.712-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.718[thread-4] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=15ba7e88-0038-4be4-9ae8-d25199d5530b, eventTime=2024-07-29T09:58:57.712-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.718[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+09:58:57.719[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6ImRhZWFlZmUzLTcxOTEtNDI5YS1hNzIyLWJkNjZkZDUyMDUyNiIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzEzLTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+09:58:57.721[thread-4] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.721[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+09:58:57.722[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=daeaefe3-7191-429a-a722-bd66dd520526, eventTime=2024-07-29T09:58:57.713-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+09:58:57.721[thread-3] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.722[thread-3] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=daeaefe3-7191-429a-a722-bd66dd520526, eventTime=2024-07-29T09:58:57.713-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.722[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.722[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+09:58:57.723[thread-3] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.724[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+09:58:57.724[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6ImZkZDA5ODkzLWYxODMtNDJmZS1iMTliLTBhMzQ1ZmUyZjgyZSIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzIyLTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=fdd09893-f183-42fe-b19b-0a345fe2f82e, eventTime=2024-07-29T09:58:57.722-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+09:58:57.727[thread-4] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.728[thread-4] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=fdd09893-f183-42fe-b19b-0a345fe2f82e, eventTime=2024-07-29T09:58:57.722-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.728[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.728[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+09:58:57.728[thread-4] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+09:58:57.732[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.732[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6IjhiNGY1YWQyLTY3MDktNDVkMC04ODcwLTE2ZWM2YTk0NzcwZiIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzMyLTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=8b4f5ad2-6709-45d0-8870-16ec6a94770f, eventTime=2024-07-29T09:58:57.732-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+09:58:57.736[thread-4] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.736[thread-4] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=8b4f5ad2-6709-45d0-8870-16ec6a94770f, eventTime=2024-07-29T09:58:57.732-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+09:58:57.736[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.736[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+09:58:57.736[thread-4] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+09:58:57.737[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.737[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6IjUwNmQ2OTI4LTE0NjYtNDAxMy1iOGE5LWE0ZDE1YzNhNDdjOCIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzI1LTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+09:58:57.739[thread-3] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=506d6928-1466-4013-b8a9-a4d15c3a47c8, eventTime=2024-07-29T09:58:57.725-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6ImE1NzRhZmM2LTI4YzEtNDhjOS1hNGI3LWVhZTc4NTVhM2EwNiIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzM3LTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=a574afc6-28c1-48c9-a4b7-eae7855a3a06, eventTime=2024-07-29T09:58:57.737-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+09:58:57.740[thread-4] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.740[thread-4] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=a574afc6-28c1-48c9-a4b7-eae7855a3a06, eventTime=2024-07-29T09:58:57.737-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.740[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+09:58:57.740[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+09:58:57.741[thread-4] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+09:58:57.741[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.742[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+09:58:57.739[thread-3] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=506d6928-1466-4013-b8a9-a4d15c3a47c8, eventTime=2024-07-29T09:58:57.725-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.745[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6IjMxMjQyNTIyLTdjYmItNGNlOC1hMjdmLTlkZThhNzkzMGI5NSIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzQzLTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=31242522-7cbb-4ce8-a27f-9de8a7930b95, eventTime=2024-07-29T09:58:57.743-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.745[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+09:58:57.745[thread-3] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+09:58:57.746[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+09:58:57.746[thread-4] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.746[thread-4] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=31242522-7cbb-4ce8-a27f-9de8a7930b95, eventTime=2024-07-29T09:58:57.743-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.746[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.746[thread-4] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.m.i.logger.LoggerChuckListener - After chunk processing: sendKafkaStep
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6ImVmODEwMWEyLWRiNDAtNDlmNC1iNzBhLTcwN2Q5MDY2NjlhNiIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzQ5LTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=ef8101a2-db40-49f4-b70a-707d906669a6, eventTime=2024-07-29T09:58:57.749-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+09:58:57.748[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+09:58:57.751[thread-4] INFO    c.s.m.infra.logger.LoggerChuckListener  :  :  : After chunk processing: sendKafkaStep
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+09:58:57.752[thread-3] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.752[thread-3] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=ef8101a2-db40-49f4-b70a-707d906669a6, eventTime=2024-07-29T09:58:57.749-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.752[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.752[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+09:58:57.753[thread-3] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8191560001412"},"paymentDate":"2024-05-21","dueDate":"2024-05-14","paymentAmount":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":1042.74,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"WITYAE CUBEMSU GHOUAR                   ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936981915600001412022697160000104274","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+09:58:57.753[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+09:58:57.753[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6IjEwYjhmZWVhLWQxZjgtNDczZS04YWFkLWZmMmJmOTVkYjFiYSIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzU0LTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=10b8feea-d1f8-473e-8aad-ff2bf95db1ba, eventTime=2024-07-29T09:58:57.754-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Starting extract MDC #########
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Extracted and starting send to: santander-telemetry-log > json
+09:58:57.757[thread-3] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.757[thread-3] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=10b8feea-d1f8-473e-8aad-ff2bf95db1ba, eventTime=2024-07-29T09:58:57.754-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.757[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.757[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+09:58:57.758[thread-3] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":null,"invoiceInfo":{"paymentType":5,"externalReference":"8241420001203"},"paymentDate":"2024-05-21","dueDate":"2024-06-05","paymentAmount":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"paymentDetails":{"minimumPaymentAmountDTO":{"amount":0.0,"currency":"BRL","numericCurrency":"00"},"accountHolderName":"AMSDUAH K.A                             ","franchiseChannelCode":null,"movementDate":null,"movementType":null,"recordSize":null,"ourNumberVerifyingDigit":null,"launchCode":null,"documentNumber":null,"assignorCode":null,"cmc7BankCheck":null,"creditUnlockDate":null,"paymentChannelCode":null,"paymentMethodCode":null,"transactionNsu":null,"postType":null,"numericBarCode":"0330090049936982414207001203025897380000000000","flagNumber":null,"cardholderName":null,"channelCode":null,"networkCode":null,"correlationId":null,"localOperReference":null,"documentType":null}}
+09:58:57.758[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Starting extract MDC #########
+09:58:57.759[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Extracted and starting send to: santander-telemetry-log > json
+2024-07-29 09:58:57 INFO  c.s.a.s.impl.SimpleLogginServiceImpl - eyJpZCI6IjBiMTE5ZWIwLWE4YTYtNGRlNy1iMmMyLTBiZjlmNjcyNDc0NiIsImV2ZW50VGltZSI6IjIwMjQtMDctMjlUMDk6NTg6NTcuNzU5LTAzMDAiLCJzaWdsYSI6Ik1QQSIsImFwcGxpY2F0aW9uIjoic2JyLW1vbmV0YXItaW52b2ljZWJhdGNoIiwiam91cm5leSI6IkNhcnRvZXMiLCJzdWJKb3VybmV5IjoiUGFnYW1lbnRvIGRlIGZhdHVyYSIsImNoYW5uZWwiOiJPbmUgRGlnaXRhbCIsInByb2R1Y3QiOiJDYXJ0w6NvIGRlIGNyZWRpdG8iLCJ0cmFuc2FjdGlvbiI6IiIsImhvc3RuYW1lIjoiIiwicHJvZHVjZXIiOiJhcnNlbmFsLXdpdGgtdGVsZW1ldHJ5MiIsInNvdXJjZSI6ImNvbS5zYW50YW5kZXIiLCJzcGVjdmVyc2lvbiI6IjEuMC4wIiwidHlwZSI6IlRFQyIsImRhdGFDb250ZW50VHlwZSI6ImFwcGxpY2F0aW9uL2pzb24iLCJjb3JyZWxhdGlvbklkIjoiIiwic3BhbiI6IllLX1BBR0FNRU5UT19GQVRVUkFfUExBUkQiLCJyZXR1cm5Db2RlIjoiIiwiZGF0YSI6eyJkZXRhaWwiOnsibWFwQXR0cmlidXRlcyI6eyJ0aW1lc3RhbXAiOiIiLCJpZGVudGlmaWNhZG9yIjoiICIsInR5cGUiOiJURUMiLCJsaW5lIjoiIiwicHJvY2VzcyI6IndyaXRlIGluIHRvcGljIHgifX19fQ==
+2024-07-29 09:58:57 INFO  c.s.e.p.TelemetryLogImplementation - Telemetry log has been recorded
+2024-07-29 09:58:57 DEBUG c.s.e.p.TelemetryLogImplementation - json logEvent: Event(id=0b119eb0-a8a6-4de7-b2c2-0bf9f6724746, eventTime=2024-07-29T09:58:57.759-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+09:58:57.765[thread-3] INFO        c.s.e.p.TelemetryLogImplementation  :  :  : Telemetry log has been recorded
+09:58:57.765[thread-3] DEBUG       c.s.e.p.TelemetryLogImplementation  :  :  : json logEvent: Event(id=0b119eb0-a8a6-4de7-b2c2-0bf9f6724746, eventTime=2024-07-29T09:58:57.759-0300, sigla=MPA, application=sbr-monetar-invoicebatch, journey=Cartoes, subJourney=Pagamento de fatura, channel=One Digital, product=Cartão de credito, transaction=, hostname=, producer=arsenal-with-telemetry2, source=com.santander, specversion=1.0.0, type=TEC, dataContentType=application/json, correlationId=, span=YK_PAGAMENTO_FATURA_PLARD, returnCode=, data=EventData(data=TemetryAttributes [mapAttributes={timestamp=, identificador= , type=TEC, line=, process=write in topic x}]))
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+2024-07-29 09:58:57 DEBUG c.s.e.utils.ExtractorAdviceUtil - ######### Finished extract MDC #########
+09:58:57.765[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : Successfully extrat and sent to santander-telemetry-log > json > {"id":"","eventTime":"","sigla":"MPA","application":"sbr-monetar-invoicebatch","journey":"Cartoes","subJourney":"Pagamento de fatura","channel":"One Digital","product":"Cartão de credito","transaction":"","hostname":"","producer":"","source":"","specversion":"","type":"TEC","dataContentType":"application/json","correlationId":"","span":"YK_PAGAMENTO_FATURA_PLARD","returnCode":"","data":{"data":{"mapAttributes":{"timestamp":"","identificador":" ","type":"TEC","line":"","process":"write in topic x"}}}}
+09:58:57.766[thread-3] DEBUG  c.s.extractor.utils.ExtractorAdviceUtil  :  :  : ######### Finished extract MDC #########
+2024-07-29 09:58:57 INFO  c.s.m.i.logger.LoggerChuckListener - After chunk processing: sendKafkaStep
+09:58:57.768[thread-3] INFO    c.s.m.infra.logger.LoggerChuckListener  :  :  : After chunk processing: sendKafkaStep
+2024-07-29 09:58:57 ERROR o.s.batch.core.step.AbstractStep - Encountered an error executing step sendKafkaStep in job processJob
+org.springframework.batch.item.file.FlatFileParseException: Parsing error at line: 4 in resource=[file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\src\test\resources\s3-bucket-test\arquivo-segmento-teste.txt]], input=[0330022316989T 03308480130002571        82414200012032621669970072111050620240000000000000000333084800338621669970072111173  002007689002000189AMSDUAH K.A                             01300025710000000000000004748475247                      004928369]
 	at org.springframework.batch.item.file.FlatFileItemReader.doRead(FlatFileItemReader.java:198)
-
-4-07-29 09:52:49 INFO  c.s.m.i.logger.LoggerChuckListener - After chunk processing: sendKafkaStep
-09:52:49.265[thread-4] INFO    c.s.m.infra.logger.LoggerChuckListener  :  :  : After chunk processing: sendKafkaStep
-2024-07-29 09:52:49 INFO  c.s.m.i.m.i.KafkaConsumerProvider - [CONSUMER-CNAB]: received payload='"{\"contractId\":null,\"invoiceInfo\":{\"paymentType\":5,\"externalReference\":\"8241420001203\"},\"paymentDate\":\"2024-05-21\",\"dueDate\":\"2024-06-05\",\"paymentAmount\":{\"amount\":0.0,\"currency\":\"BRL\",\"numericCurrency\":\"00\"},\"paymentDetails\":{\"minimumPaymentAmountDTO\":{\"amount\":0.0,\"currency\":\"BRL\",\"numericCurrency\":\"00\"},\"accountHolderName\":\"AMSDUAH K.A                             \",\"franchiseChannelCode\":null,\"movementDate\":null,\"movementType\":null,\"recordSize\":null,\"ourNumberVerifyingDigit\":null,\"launchCode\":null,\"documentNumber\":null,\"assignorCode\":null,\"cmc7BankCheck\":null,\"creditUnlockDate\":null,\"paymentChannelCode\":null,\"paymentMethodCode\":null,\"transactionNsu\":null,\"postType\":null,\"numericBarCode\":\"0330090049936982414207001203025897380000000000\",\"flagNumber\":null,\"cardholderName\":null,\"channelCode\":null,\"networkCode\":null,\"correlationId\":null,\"localOperReference\":null,\"documentType\":null}}"'
-2024-07-29 09:52:49 ERROR o.s.batch.core.step.AbstractStep - Encountered an error executing step sendKafkaStep in job processJob
-org.springframework.batch.item.file.FlatFileParseException: Parsing error at line: 3 in resource=[file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\src\test\resources\s3-bucket-test\arquivo-segmento-teste.txt]], input=[0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      004928369]
+	at org.springframework.batch.item.support.AbstractItemCountingItemStreamItemReader.read(AbstractItemCountingItemStreamItemReader.java:93)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.doRead(SimpleChunkProvider.java:108)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.read(SimpleChunkProvider.java:182)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.lambda$provide$0(SimpleChunkProvider.java:132)
+	at org.springframework.batch.repeat.support.RepeatTemplate.getNextResult(RepeatTemplate.java:369)
+	at org.springframework.batch.repeat.support.RepeatTemplate.executeInternal(RepeatTemplate.java:206)
+	at org.springframework.batch.repeat.support.RepeatTemplate.iterate(RepeatTemplate.java:140)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.provide(SimpleChunkProvider.java:127)
+	at org.springframework.batch.core.step.item.ChunkOrientedTasklet.execute(ChunkOrientedTasklet.java:69)
+	at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:388)
+	at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:312)
+	at org.springframework.transaction.support.TransactionTemplate.execute(TransactionTemplate.java:140)
+	at org.springframework.batch.core.step.tasklet.TaskletStep$2.doInChunkContext(TaskletStep.java:255)
+	at org.springframework.batch.core.scope.context.StepContextRepeatCallback.doInIteration(StepContextRepeatCallback.java:82)
+	at org.springframework.batch.repeat.support.TaskExecutorRepeatTemplate$ExecutingRunnable.run(TaskExecutorRepeatTemplate.java:261)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:842)
+Caused by: java.lang.StringIndexOutOfBoundsException: begin 248, end 253, length 249
+	at java.base/java.lang.String.checkBoundsBeginEnd(String.java:4608)
+	at java.base/java.lang.String.substring(String.java:2711)
+	at com.santander.app.mapper.impl.StringParserImpl.parse(StringParserImpl.java:11)
+	at com.santander.app.mapper.impl.StringParserImpl.parse(StringParserImpl.java:6)
+	at com.santander.domain.command.SerializeObjectCommand.execute(SerializeObjectCommand.java:21)
+	at com.santander.domain.command.PositionalFieldProcessor.invokeFieldSetter(PositionalFieldProcessor.java:57)
+	at com.santander.domain.command.PositionalFieldProcessor.lambda$process$1(PositionalFieldProcessor.java:31)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at com.santander.domain.command.PositionalFieldProcessor.process(PositionalFieldProcessor.java:31)
+	at com.santander.domain.command.PositionalFieldProcessor.lambda$process$0(PositionalFieldProcessor.java:27)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at com.santander.domain.command.PositionalFieldProcessor.process(PositionalFieldProcessor.java:23)
+	at com.santander.mpa.app.mapper.impl.LineMapperImpl.convert(LineMapperImpl.java:23)
+	at com.santander.mpa.infra.config.BatchConfiguration.lambda$fileSegmentsItemReader$0(BatchConfiguration.java:63)
+	at org.springframework.batch.item.file.FlatFileItemReader.doRead(FlatFileItemReader.java:194)
+	... 18 common frames omitted
+2024-07-29 09:58:57 INFO  c.s.m.i.logger.LoggerStepListener - Step has completed with status: FAILED
+09:58:57.769[    main] ERROR         o.s.batch.core.step.AbstractStep  :  :  : Encountered an error executing step sendKafkaStep in job processJob
+org.springframework.batch.item.file.FlatFileParseException: Parsing error at line: 4 in resource=[file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\src\test\resources\s3-bucket-test\arquivo-segmento-teste.txt]], input=[0330022316989T 03308480130002571        82414200012032621669970072111050620240000000000000000333084800338621669970072111173  002007689002000189AMSDUAH K.A                             01300025710000000000000004748475247                      004928369]
 	at org.springframework.batch.item.file.FlatFileItemReader.doRead(FlatFileItemReader.java:198)
+	at org.springframework.batch.item.support.AbstractItemCountingItemStreamItemReader.read(AbstractItemCountingItemStreamItemReader.java:93)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.doRead(SimpleChunkProvider.java:108)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.read(SimpleChunkProvider.java:182)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.lambda$provide$0(SimpleChunkProvider.java:132)
+	at org.springframework.batch.repeat.support.RepeatTemplate.getNextResult(RepeatTemplate.java:369)
+	at org.springframework.batch.repeat.support.RepeatTemplate.executeInternal(RepeatTemplate.java:206)
+	at org.springframework.batch.repeat.support.RepeatTemplate.iterate(RepeatTemplate.java:140)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.provide(SimpleChunkProvider.java:127)
+	at org.springframework.batch.core.step.item.ChunkOrientedTasklet.execute(ChunkOrientedTasklet.java:69)
+	at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:388)
+	at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:312)
+	at org.springframework.transaction.support.TransactionTemplate.execute(TransactionTemplate.java:140)
+	at org.springframework.batch.core.step.tasklet.TaskletStep$2.doInChunkContext(TaskletStep.java:255)
+	at org.springframework.batch.core.scope.context.StepContextRepeatCallback.doInIteration(StepContextRepeatCallback.java:82)
+	at org.springframework.batch.repeat.support.TaskExecutorRepeatTemplate$ExecutingRunnable.run(TaskExecutorRepeatTemplate.java:261)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:842)
+Caused by: java.lang.StringIndexOutOfBoundsException: begin 248, end 253, length 249
+	at java.base/java.lang.String.checkBoundsBeginEnd(String.java:4608)
+	at java.base/java.lang.String.substring(String.java:2711)
+	at com.santander.app.mapper.impl.StringParserImpl.parse(StringParserImpl.java:11)
+	at com.santander.app.mapper.impl.StringParserImpl.parse(StringParserImpl.java:6)
+	at com.santander.domain.command.SerializeObjectCommand.execute(SerializeObjectCommand.java:21)
+	at com.santander.domain.command.PositionalFieldProcessor.invokeFieldSetter(PositionalFieldProcessor.java:57)
+	at com.santander.domain.command.PositionalFieldProcessor.lambda$process$1(PositionalFieldProcessor.java:31)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at com.santander.domain.command.PositionalFieldProcessor.process(PositionalFieldProcessor.java:31)
+	at com.santander.domain.command.PositionalFieldProcessor.lambda$process$0(PositionalFieldProcessor.java:27)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at com.santander.domain.command.PositionalFieldProcessor.process(PositionalFieldProcessor.java:23)
+	at com.santander.mpa.app.mapper.impl.LineMapperImpl.convert(LineMapperImpl.java:23)
+	at com.santander.mpa.infra.config.BatchConfiguration.lambda$fileSegmentsItemReader$0(BatchConfiguration.java:63)
+	at org.springframework.batch.item.file.FlatFileItemReader.doRead(FlatFileItemReader.java:194)
+	at org.springframework.batch.item.support.AbstractItemCountingItemStreamItemReader.read(AbstractItemCountingItemStreamItemReader.java:93)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.doRead(SimpleChunkProvider.java:108)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.read(SimpleChunkProvider.java:182)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.lambda$provide$0(SimpleChunkProvider.java:132)
+	at org.springframework.batch.repeat.support.RepeatTemplate.getNextResult(RepeatTemplate.java:369)
+	at org.springframework.batch.repeat.support.RepeatTemplate.executeInternal(RepeatTemplate.java:206)
+	at org.springframework.batch.repeat.support.RepeatTemplate.iterate(RepeatTemplate.java:140)
+	at org.springframework.batch.core.step.item.SimpleChunkProvider.provide(SimpleChunkProvider.java:127)
+	at org.springframework.batch.core.step.item.ChunkOrientedTasklet.execute(ChunkOrientedTasklet.java:69)
+	at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:388)
+	at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:312)
+	at org.springframework.transaction.support.TransactionTemplate.execute(TransactionTemplate.java:140)
+	at org.springframework.batch.core.step.tasklet.TaskletStep$2.doInChunkContext(TaskletStep.java:255)
+	at org.springframework.batch.core.scope.context.StepContextRepeatCallback.doInIteration(StepContextRepeatCallback.java:82)
+	at org.springframework.batch.repeat.support.TaskExecutorRepeatTemplate$ExecutingRunnable.run(TaskExecutorRepeatTemplate.java:261)
+09:58:57.774[    main] INFO   c.s.mpa.infra.logger.LoggerStepListener  :  :  : Step has completed with status: FAILED
 
-2024-07-29 09:52:49 INFO  c.s.m.i.m.KafkaProvider - Sending message to Kafka: {"contractId":"031710023000002365","invoiceInfo":{"paymentType":5,"externalReference":"yyyyyyyyyyy"},"paymentDate":"2023-07-14","dueDate":"2024-01-30","paymentAmount":{"amount":90.0,"currency":"BRL","numericCurrency":"986"},"paymentDetails":{"minimumPaymentAmountDTO":null,"accountHolderName":"JOSEDASILVA","franchiseChannelCode":2,"movementDate":"2024-31-01","movementType":"C","recordSize":154,"ourNumberVerifyingDigit":"6","launchCode":1,"documentNumber":12345678901,"assignorCode":12345678,"cmc7BankCheck":"123432409786645324568231211239","creditUnlockDate":"2024-31-01","paymentChannelCode":"ABCD","paymentMethodCode":"5","transactionNsu":"HEWRTDFSHFGYIUYHIOHGJKJH","postType":"B","numericBarCode":"5423452547632335643423214213564675689765342","flagNumber":0,"cardholderName":"string","channelCode":0,"networkCode":"string","correlationId":"string","localOperReference":"string","documentType":"CPF"}}
-09:52:49.165[    main] INFO     c.s.m.i.messageprovider.KafkaProvider  :  :  : Sending message to Kafka: {"contractId":"031710023000002365","invoiceInfo":{"paymentType":5,"externalReference":"yyyyyyyyyyy"},"paymentDate":"2023-07-14","dueDate":"2024-01-30","paymentAmount":{"amount":90.0,"currency":"BRL","numericCurrency":"986"},"paymentDetails":{"minimumPaymentAmountDTO":null,"accountHolderName":"JOSEDASILVA","franchiseChannelCode":2,"movementDate":"2024-31-01","movementType":"C","recordSize":154,"ourNumberVerifyingDigit":"6","launchCode":1,"documentNumber":12345678901,"assignorCode":12345678,"cmc7BankCheck":"123432409786645324568231211239","creditUnlockDate":"2024-31-01","paymentChannelCode":"ABCD","paymentMethodCode":"5","transactionNsu":"HEWRTDFSHFGYIUYHIOHGJKJH","postType":"B","numericBarCode":"5423452547632335643423214213564675689765342","flagNumber":0,"cardholderName":"string","channelCode":0,"networkCode":"string","correlationId":"string","localOperReference":"string","documentType":"CPF"}}
-2024-07-29 09:52:49 ERROR c.s.m.i.m.KafkaProvider - Error sending message to Kafka
-org.springframework.kafka.KafkaException: Error sending message to Kafka
-	at org.springframework.kafka.core.KafkaTemplate.send(KafkaTemplate.java:576)
-	at com.santander.mpa.infra.messageprovider.KafkaProvider.send(KafkaProvider.java:38)
+org.opentest4j.AssertionFailedError: 
+Expected :COMPLETED
+Actual   :FAILED
+<Click to see difference>
 
-2024-07-29 09:52:41 INFO  c.s.m.i.logger.LoggerStepListener - Step has completed with status: FAILED
-09:52:41.007[    main] ERROR         o.s.batch.core.step.AbstractStep  :  :  : Encountered an error executing step sendKafkaStep in job processJob
-org.springframework.batch.item.file.FlatFileParseException: Parsing error at line: 5 in resource=[file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\src\test\resources\s3-bucket-test\arquivo-segmento-teste.txt]], input=[0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      004928369]
-	at org.springframework.batch.item.file.FlatFileItemReader.doRead(FlatFileItemReader.java:198)
 
-2024-07-29 09:52:41 ERROR o.s.batch.core.step.AbstractStep - Encountered an error executing step sendKafkaStep in job processJob
-org.springframework.batch.item.file.FlatFileParseException: Parsing error at line: 5 in resource=[file [C:\dev-tools-santander\repositorio\sbr-monetar-invoicecnabbatch\src\test\resources\s3-bucket-test\arquivo-segmento-teste.txt]], input=[0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      004928369]
-	at org.springframework.batch.item.file.FlatFileItemReader.doRead(FlatFileItemReader.java:198)
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:132)
+	at org.junit.jupiter.api.AssertEquals.failNotEqual(AssertEquals.java:197)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:182)
+	at org.junit.jupiter.api.AssertEquals.assertEquals(AssertEquals.java:177)
+	at org.junit.jupiter.api.Assertions.assertEquals(Assertions.java:1145)
+	at com.santander.mpa.infra.messageprovider.integration.KafkaProviderMockTest.testJobWithMockedKafka(KafkaProviderMockTest.java:38)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511)
+
