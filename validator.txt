@@ -1,1 +1,31 @@
 
+@Entity
+@Getter
+@Setter
+@Table(name = "plardmetadata")
+@AllArgsConstructor
+@NoArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class PlardItemProcessorEntity {
+
+    @Id
+    @Column(name = "id_metadados")
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long idPlardItemProcessorEntity;
+
+    @Column
+    private LocalDate updatedTime;
+
+    @Enumerated(EnumType.STRING)
+    private StatusType statusType;
+
+    @Enumerated(EnumType.STRING)
+    private Origem origem;
+
+    @Column
+    private ResolutionEntity resolutionEntity;
+
+    @Column
+    private InvoiceEntity invoiceEntity;
+
+} 
