@@ -1,1 +1,5 @@
 O MirrorMaker 2.0 não copia todo o cluster, mas sim replica tópicos específicos de um cluster de origem para um cluster de destino. Cada tópico consiste de mensagens distribuídas em partições, e o MirrorMaker 2.0 gerencia a replicação dessas mensagens conforme configurado.
+
+Detalhes da Replicação
+Tópicos Específicos: Você configura o MirrorMaker 2.0 para replicar tópicos específicos. Por exemplo, você pode replicar o tópico my-topic do Cluster A para o Cluster B.
+Mensagens e Partições: Dentro dos tópicos especificados, o MirrorMaker 2.0 copia as mensagens de todas as partições associadas.
