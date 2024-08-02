@@ -1,43 +1,53 @@
-O MirrorMaker 2.0 é uma ferramenta do Apache Kafka usada para replicar dados entre diferentes clusters Kafka. Ele foi introduzido no Kafka 2.4 como uma versão aprimorada do MirrorMaker original, oferecendo uma solução mais robusta e flexível para a replicação de dados em múltiplos datacenters ou regiões.
-
-Principais Características do MirrorMaker 2.0:
-Replicação Bidirecional: Permite a replicação de dados em ambas as direções entre dois clusters Kafka, suportando casos de uso onde os dados precisam ser sincronizados entre clusters geograficamente distribuídos.
-
-Configuração Centralizada: Usa arquivos de configuração baseados em YAML, facilitando a gestão e a leitura das configurações.
-
-Gerenciamento de Offsets: Garante que os offsets do consumidor sejam replicados, permitindo que os consumidores continuem a partir do ponto correto em outro cluster.
-
-Monitoramento e Métricas: Oferece métricas detalhadas e integradas para monitorar a performance e o status da replicação.
-
-Conectores e Transformações: Usa a arquitetura de conectores do Kafka Connect, permitindo o uso de conectores existentes e transformações durante a replicação.
-
-Automatização de Topologias: Suporta a configuração automática de topologias de replicação, facilitando a gestão de grandes ambientes com múltiplos clusters.
-
-Componentes Principais:
-MirrorSourceConnector: Conector que lê dados do cluster de origem e os escreve no cluster de destino.
-MirrorCheckpointConnector: Conector que replica os offsets do consumidor para garantir a continuidade da leitura.
-MirrorHeartbeatConnector: Conector que monitora a latência da replicação e gera eventos de heartbeat para monitoramento.
-Casos de Uso Comuns:
-Disaster Recovery: Replicação de dados para um cluster de backup para garantir a continuidade dos negócios em caso de falha.
-Migração de Dados: Migração de dados entre clusters durante atualizações ou mudanças de infraestrutura.
-Geo-Redundância: Manutenção de cópias de dados em diferentes regiões geográficas para reduzir a latência e melhorar a resiliência.
-Exemplo de Configuração Simples:
-yaml
+2. Configurar e Iniciar o Cluster Kafka A
+No servidor onde o Cluster A será executado, edite o arquivo config/server.properties:
+properties
 Copiar código
-clusters:
-  - alias: "us-west"
-    bootstrap.servers: "us-west.kafka.example.com:9092"
-  - alias: "us-east"
-    bootstrap.servers: "us-east.kafka.example.com:9092"
+broker.id=1
+listeners=PLAINTEXT://<kafka_a_host>:9092
+log.dirs=/var/lib/kafka-logs-1
+zookeeper.connect=<zookeeper_host>:2181
+Inicie o Cluster A:
+sh
+Copiar código
+bin/zookeeper-server-start.sh config/zookeeper.properties &
+bin/kafka-server-start.sh config/server.properties &
+3. Configurar e Iniciar o Cluster Kafka B
+No servidor onde o Cluster B será executado, copie o arquivo server.properties e modifique as configurações:
+sh
+Copiar código
+cp config/server.properties config/server-b.properties
+Edite o arquivo config/server-b.properties:
+properties
+Copiar código
+broker.id=2
+listeners=PLAINTEXT://<kafka_b_host>:9093
+log.dirs=/var/lib/kafka-logs-2
+zookeeper.connect=<zookeeper_host>:2181
+Inicie o Cluster B:
+sh
+Copiar código
+bin/kafka-server-start.sh config/server-b.properties &
+Passo 2: Configurar e Iniciar o MirrorMaker 2.0
+1. Criar o Arquivo de Configuração do MirrorMaker
+No servidor onde o MirrorMaker 2.0 será executado, crie o arquivo mirrormaker.properties:
 
-replication:
-  - source.cluster.alias: "us-west"
-    target.cluster.alias: "us-east"
-    topics: ".*"
-    sync.topic.acls.enabled: true
-Esta configuração replica todos os tópicos do cluster "us-west" para o cluster "us-east".
+properties
+Copiar código
+clusters = A, B
 
-Referências:
-Apache Kafka MirrorMaker 2.0 Documentation
-Kafka Connect Documentation
-Essas referências fornecem detalhes adicionais e exemplos para configurar e utilizar o MirrorMaker 2.0 em diferentes cenários.
+A.bootstrap.servers = <kafka_a_host>:9092
+B.bootstrap.servers = <kafka_b_host>:9093
+
+tasks.max = 1
+
+topics = my-topic
+
+A->B.enabled = true
+A->B.topics = my-topic
+2. Iniciar o MirrorMaker 2.0
+Para iniciar o MirrorMaker 2.0, use o seguinte comando a partir do diretório principal do Kafka:
+
+sh
+Copiar código
+bin/connect-mirror-maker.sh mirrormaker.properties
+Passo 3: Configurar e Executar o Produtor Java
