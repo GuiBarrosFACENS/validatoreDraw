@@ -1,53 +1,12 @@
-2. Configurar e Iniciar o Cluster Kafka A
-No servidor onde o Cluster A será executado, edite o arquivo config/server.properties:
-properties
-Copiar código
-broker.id=1
-listeners=PLAINTEXT://<kafka_a_host>:9092
-log.dirs=/var/lib/kafka-logs-1
-zookeeper.connect=<zookeeper_host>:2181
-Inicie o Cluster A:
+Passo 4: Verificar a Replicação
+Verifique se as mensagens estão sendo produzidas no Kafka Cluster A.
+Verifique se o MirrorMaker 2.0 está replicando as mensagens para o Kafka Cluster B.
+Você pode usar o consumidor Kafka para verificar as mensagens no Cluster B:
 sh
 Copiar código
-bin/zookeeper-server-start.sh config/zookeeper.properties &
-bin/kafka-server-start.sh config/server.properties &
-3. Configurar e Iniciar o Cluster Kafka B
-No servidor onde o Cluster B será executado, copie o arquivo server.properties e modifique as configurações:
-sh
-Copiar código
-cp config/server.properties config/server-b.properties
-Edite o arquivo config/server-b.properties:
-properties
-Copiar código
-broker.id=2
-listeners=PLAINTEXT://<kafka_b_host>:9093
-log.dirs=/var/lib/kafka-logs-2
-zookeeper.connect=<zookeeper_host>:2181
-Inicie o Cluster B:
-sh
-Copiar código
-bin/kafka-server-start.sh config/server-b.properties &
-Passo 2: Configurar e Iniciar o MirrorMaker 2.0
-1. Criar o Arquivo de Configuração do MirrorMaker
-No servidor onde o MirrorMaker 2.0 será executado, crie o arquivo mirrormaker.properties:
-
-properties
-Copiar código
-clusters = A, B
-
-A.bootstrap.servers = <kafka_a_host>:9092
-B.bootstrap.servers = <kafka_b_host>:9093
-
-tasks.max = 1
-
-topics = my-topic
-
-A->B.enabled = true
-A->B.topics = my-topic
-2. Iniciar o MirrorMaker 2.0
-Para iniciar o MirrorMaker 2.0, use o seguinte comando a partir do diretório principal do Kafka:
-
-sh
-Copiar código
-bin/connect-mirror-maker.sh mirrormaker.properties
-Passo 3: Configurar e Executar o Produtor Java
+bin/kafka-console-consumer.sh --bootstrap-server <kafka_b_host>:9093 --topic my-topic --from-beginning
+Resumo
+Configure e inicie os Clusters Kafka A e B nos respectivos servidores.
+Configure e inicie o MirrorMaker 2.0 em um servidor que tenha acesso a ambos os clusters.
+Configure e execute a aplicação de produtor Java para enviar mensagens ao Cluster A.
+Verifique a replicação das mensagens do Cluster A para o Cluster B.
