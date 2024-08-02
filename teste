@@ -1,101 +1,43 @@
+O MirrorMaker 2.0 é uma ferramenta do Apache Kafka usada para replicar dados entre diferentes clusters Kafka. Ele foi introduzido no Kafka 2.4 como uma versão aprimorada do MirrorMaker original, oferecendo uma solução mais robusta e flexível para a replicação de dados em múltiplos datacenters ou regiões.
 
-13:37:22.281[duling-1] ERROR    c.s.m.a.s.w.FileSegmentsWriterService  :  :  : Error creating file at path: (src/main/resources/s3-bucket/arquivo-segmento.txt).
-java.io.IOException: No such file or directory
- at java.base/java.io.UnixFileSystem.createFileExclusively(Native Method)
- at java.base/java.io.File.createNewFile(File.java:1043)
- at com.santander.mpa.domain.usecase.impl.CreateFileUseCaseImpl.createFile(CreateFileUseCaseImpl.java:22)
- at com.santander.mpa.app.service.writers.FileSegmentsWriterService.write(FileSegmentsWriterService.java:43)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.writeItems(SimpleChunkProcessor.java:203)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.doWrite(SimpleChunkProcessor.java:170)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.write(SimpleChunkProcessor.java:297)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.process(SimpleChunkProcessor.java:227)
- at org.springframework.batch.core.step.item.ChunkOrientedTasklet.execute(ChunkOrientedTasklet.java:75)
- at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:388)
- at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:312)
- at org.springframework.transaction.support.TransactionTemplate.execute(TransactionTemplate.java:140)
- at org.springframework.batch.core.step.tasklet.TaskletStep$2.doInChunkContext(TaskletStep.java:255)
- at org.springframework.batch.core.scope.context.StepContextRepeatCallback.doInIteration(StepContextRepeatCallback.java:82)
- at org.springframework.batch.repeat.support.RepeatTemplate.getNextResult(RepeatTemplate.java:369)
- at org.springframework.batch.repeat.support.RepeatTemplate.executeInternal(RepeatTemplate.java:206)
- at org.springframework.batch.repeat.support.RepeatTemplate.iterate(RepeatTemplate.java:140)
- at org.springframework.batch.core.step.tasklet.TaskletStep.doExecute(TaskletStep.java:240)
- at org.springframework.batch.core.step.AbstractStep.execute(AbstractStep.java:229)
- at org.springframework.batch.core.job.SimpleStepHandler.handleStep(SimpleStepHandler.java:153)
- at org.springframework.batch.core.job.AbstractJob.handleStep(AbstractJob.java:418)
- at org.springframework.batch.core.job.SimpleJob.doExecute(SimpleJob.java:132)
- at org.springframework.batch.core.job.AbstractJob.execute(AbstractJob.java:317)
- at org.springframework.batch.core.launch.support.SimpleJobLauncher$1.run(SimpleJobLauncher.java:157)
- at org.springframework.core.task.SyncTaskExecutor.execute(SyncTaskExecutor.java:50)
- at org.springframework.batch.core.launch.support.SimpleJobLauncher.run(SimpleJobLauncher.java:148)
- at org.springframework.batch.core.launch.support.TaskExecutorJobLauncher.run(TaskExecutorJobLauncher.java:59)
- at com.santander.mpa.infra.config.ScheduleConfiguration.launchJob(ScheduleConfiguration.java:39)
- at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
- at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
-13:37:22.288[duling-1] INFO    c.s.m.infra.logger.LoggerChuckListener  :  :  : Error during chunk processing: mergeInvoiceSegmentsLinesStep
-13:37:22.290[duling-1] ERROR         o.s.batch.core.step.AbstractStep  :  :  : Encountered an error executing step mergeInvoiceSegmentsLinesStep in job processJob
-com.santander.mpa.infra.exception.ErrorWriteFileException: write_file.error
- at com.santander.mpa.app.service.writers.FileSegmentsWriterService.write(FileSegmentsWriterService.java:49)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.writeItems(SimpleChunkProcessor.java:203)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.doWrite(SimpleChunkProcessor.java:170)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.write(SimpleChunkProcessor.java:297)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.process(SimpleChunkProcessor.java:227)
- at org.springframework.batch.core.step.item.ChunkOrientedTasklet.execute(ChunkOrientedTasklet.java:75)
- at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:388)
- at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:312)
- at org.springframework.transaction.support.TransactionTemplate.execute(TransactionTemplate.java:140)
- at org.springframework.batch.core.step.tasklet.TaskletStep$2.doInChunkContext(TaskletStep.java:255)
- at org.springframework.batch.core.scope.context.StepContextRepeatCallback.doInIteration(StepContextRepeatCallback.java:82)
- at org.springframework.batch.repeat.support.RepeatTemplate.getNextResult(RepeatTemplate.java:369)
- at org.springframework.batch.repeat.support.RepeatTemplate.executeInternal(RepeatTemplate.java:206)
- at org.springframework.batch.repeat.support.RepeatTemplate.iterate(RepeatTemplate.java:140)
- at org.springframework.batch.core.step.tasklet.TaskletStep.doExecute(TaskletStep.java:240)
- at org.springframework.batch.core.step.AbstractStep.execute(AbstractStep.java:229)
- at org.springframework.batch.core.job.SimpleStepHandler.handleStep(SimpleStepHandler.java:153)
- at org.springframework.batch.core.job.AbstractJob.handleStep(AbstractJob.java:418)
- at org.springframework.batch.core.job.SimpleJob.doExecute(SimpleJob.java:132)
- at org.springframework.batch.core.job.AbstractJob.execute(AbstractJob.java:317)
- at org.springframework.batch.core.launch.support.SimpleJobLauncher$1.run(SimpleJobLauncher.java:157)
- at org.springframework.core.task.SyncTaskExecutor.execute(SyncTaskExecutor.java:50)
- at org.springframework.batch.core.launch.support.SimpleJobLauncher.run(SimpleJobLauncher.java:148)
- at org.springframework.batch.core.launch.support.TaskExecutorJobLauncher.run(TaskExecutorJobLauncher.java:59)
- at com.santander.mpa.infra.config.ScheduleConfiguration.launchJob(ScheduleConfiguration.java:39)
- at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
- at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
- at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
- at java.base/java.lang.reflect.Method.invoke(Method.java:568)
- at org.springframework.scheduling.support.ScheduledMethodRunnable.runInternal(ScheduledMethodRunnable.java:130)
-Caused by: java.io.IOException: No such file or directory
- at java.base/java.io.UnixFileSystem.createFileExclusively(Native Method)
- at java.base/java.io.File.createNewFile(File.java:1043)
- at com.santander.mpa.domain.usecase.impl.CreateFileUseCaseImpl.createFile(CreateFileUseCaseImpl.java:22)
- at com.santander.mpa.app.service.writers.FileSegmentsWriterService.write(FileSegmentsWriterService.java:43)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.writeItems(SimpleChunkProcessor.java:203)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.doWrite(SimpleChunkProcessor.java:170)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.write(SimpleChunkProcessor.java:297)
- at org.springframework.batch.core.step.item.SimpleChunkProcessor.process(SimpleChunkProcessor.java:227)
- at org.springframework.batch.core.step.item.ChunkOrientedTasklet.execute(ChunkOrientedTasklet.java:75)
- at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:388)
- at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:312)
- at org.springframework.transaction.support.TransactionTemplate.execute(TransactionTemplate.java:140)
- at org.springframework.batch.core.step.tasklet.TaskletStep$2.doInChunkContext(TaskletStep.java:255)
- at org.springframework.batch.core.scope.context.StepContextRepeatCallback.doInIteration(StepContextRepeatCallback.java:82)
- at org.springframework.batch.repeat.support.RepeatTemplate.getNextResult(RepeatTemplate.java:369)
- at org.springframework.batch.repeat.support.RepeatTemplate.executeInternal(RepeatTemplate.java:206)
- at org.springframework.batch.repeat.support.RepeatTemplate.iterate(RepeatTemplate.java:140)
- at org.springframework.batch.core.step.tasklet.TaskletStep.doExecute(TaskletStep.java:240)
- at org.springframework.batch.core.step.AbstractStep.execute(AbstractStep.java:229)
- at org.springframework.batch.core.job.SimpleStepHandler.handleStep(SimpleStepHandler.java:153)
- at org.springframework.batch.core.job.AbstractJob.handleStep(AbstractJob.java:418)
- at org.springframework.batch.core.job.SimpleJob.doExecute(SimpleJob.java:132)
- at org.springframework.batch.core.job.AbstractJob.execute(AbstractJob.java:317)
- at org.springframework.batch.core.launch.support.SimpleJobLauncher$1.run(SimpleJobLauncher.java:157)
- at org.springframework.core.task.SyncTaskExecutor.execute(SyncTaskExecutor.java:50)
- at org.springframework.batch.core.launch.support.SimpleJobLauncher.run(SimpleJobLauncher.java:148)
- at org.springframework.batch.core.launch.support.TaskExecutorJobLauncher.run(TaskExecutorJobLauncher.java:59)
- at com.santander.mpa.infra.config.ScheduleConfiguration.launchJob(ScheduleConfiguration.java:39)
- at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
- at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
-13:37:22.290[duling-1] INFO   c.s.mpa.infra.logger.LoggerStepListener  :  :  : Step has completed with status: FAILED
-13:37:22.295[duling-1] INFO          o.s.batch.core.step.AbstractStep  :  :  : Step: [mergeInvoiceSegmentsLinesStep] executed in 323ms
-13:37:22.305[duling-1] INFO       o.s.b.c.l.support.SimpleJobLauncher  :  :  : Job: [SimpleJob: [name=processJob]] completed with the following parameters: [{'runDate':'{value=Wed Jul 31 13:37:21 BRT 2024, type=class java.util.Date, identifying=true}'}] and the following status: [FAILED] in 359ms
-13:37:22.305[duling-1] INFO      c.s.m.i.config.ScheduleConfiguration  :  :  : Batch job ends with status as FAILED
+Principais Características do MirrorMaker 2.0:
+Replicação Bidirecional: Permite a replicação de dados em ambas as direções entre dois clusters Kafka, suportando casos de uso onde os dados precisam ser sincronizados entre clusters geograficamente distribuídos.
+
+Configuração Centralizada: Usa arquivos de configuração baseados em YAML, facilitando a gestão e a leitura das configurações.
+
+Gerenciamento de Offsets: Garante que os offsets do consumidor sejam replicados, permitindo que os consumidores continuem a partir do ponto correto em outro cluster.
+
+Monitoramento e Métricas: Oferece métricas detalhadas e integradas para monitorar a performance e o status da replicação.
+
+Conectores e Transformações: Usa a arquitetura de conectores do Kafka Connect, permitindo o uso de conectores existentes e transformações durante a replicação.
+
+Automatização de Topologias: Suporta a configuração automática de topologias de replicação, facilitando a gestão de grandes ambientes com múltiplos clusters.
+
+Componentes Principais:
+MirrorSourceConnector: Conector que lê dados do cluster de origem e os escreve no cluster de destino.
+MirrorCheckpointConnector: Conector que replica os offsets do consumidor para garantir a continuidade da leitura.
+MirrorHeartbeatConnector: Conector que monitora a latência da replicação e gera eventos de heartbeat para monitoramento.
+Casos de Uso Comuns:
+Disaster Recovery: Replicação de dados para um cluster de backup para garantir a continuidade dos negócios em caso de falha.
+Migração de Dados: Migração de dados entre clusters durante atualizações ou mudanças de infraestrutura.
+Geo-Redundância: Manutenção de cópias de dados em diferentes regiões geográficas para reduzir a latência e melhorar a resiliência.
+Exemplo de Configuração Simples:
+yaml
+Copiar código
+clusters:
+  - alias: "us-west"
+    bootstrap.servers: "us-west.kafka.example.com:9092"
+  - alias: "us-east"
+    bootstrap.servers: "us-east.kafka.example.com:9092"
+
+replication:
+  - source.cluster.alias: "us-west"
+    target.cluster.alias: "us-east"
+    topics: ".*"
+    sync.topic.acls.enabled: true
+Esta configuração replica todos os tópicos do cluster "us-west" para o cluster "us-east".
+
+Referências:
+Apache Kafka MirrorMaker 2.0 Documentation
+Kafka Connect Documentation
+Essas referências fornecem detalhes adicionais e exemplos para configurar e utilizar o MirrorMaker 2.0 em diferentes cenários.
