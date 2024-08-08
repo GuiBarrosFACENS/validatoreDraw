@@ -222,3 +222,67 @@ public class PlaceListImpl implements PlaceList {
     return Optional.empty();
   }
 }
+
+
+package com.santader;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.santader.example.impl.PlaceListImpl;
+import com.santader.place.City;
+import com.santader.place.Country;
+import com.santader.place.State;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class MainPlaces {
+  private static final PlaceListImpl placeList = new PlaceListImpl();
+
+  public static List<City> cities = new ArrayList<>();
+  public static List<State> states = new ArrayList<>();
+  public static Country country;
+  public static City city;
+  public static State state;
+  public static void main(String[] args) throws JsonProcessingException {
+    initiPlacesData();
+
+    var res = placeList.getStatesNames(country);
+//    var res = placeList.getCitiesNames(country);
+//    var res = placeList.getAlphabeticalCities(cities);
+//    var res = placeList.getCitiesWithMoreThanOneMillionPeople(cities);
+//    var res = placeList.getStatePopulation(state);
+//    var res = placeList.getCountryPopulation(country);
+//    var red7 = placeList.isStateSuperPopulated(state);
+//    var res = placeList.isStateStupidlyPopulated(state);
+//    var res = placeList.isStateSubPopulated(state);
+//    var res = placeList.getStateSuperPopulatedCitiesQuantity(state);
+//    var res = placeList.findCity(country, "São Paulo");
+
+    System.out.println(res);
+  }
+
+  public static void initiPlacesData() {
+    Country brazil = new Country("Brasil");
+    country = brazil;
+
+    State sp = new State("São Paulo", "SP", brazil);
+    State rj = new State("Rio de Janeiro", "RJ", brazil);
+    State ro = new State("Rondônia", "RO", brazil);
+    states.addAll(List.of(sp, rj, ro));
+    state = sp;
+
+    City saoPaulo = new City("São Paulo", sp, 12000000);
+    City campinas = new City("Campinas", sp, 2000000);
+    City saoJose = new City("São José dos Campos", sp, 900000);
+
+    City rioDeJaneiro = new City("Rio de Janeiro", rj, 6000000);
+    City niteroi = new City("Niterói", rj, 500000);
+
+    City portoVelho = new City("Porto Velho", ro, 400000);
+
+    city = saoPaulo;
+
+    cities.addAll(List.of(saoPaulo, campinas, saoJose, rioDeJaneiro, niteroi, portoVelho));
+  }
+
+}
