@@ -43,4 +43,193 @@ public class BankListImpl implements BankList {
     public List<String> getClientsMotherName(Bank bank) {
         return bank.getAccounts().stream()
                    .map(Account::getClient)
-                   .map(client -> client.get
+                   .map(client -> client.getPerson().getMother())
+                   .filter(Optional::isPresent)
+                   .map(Optional::get)
+                   .map(Person::getName)
+                   .collect(Collectors.toList());
+    }
+
+    /**
+     * @param bank Banco
+     * @return Lista com os clientes com mais de 40 anos de idade
+     */
+    @Override
+    public List<Client> getOldestClients(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .filter(client -> client.getPerson().getAge() > 40)
+                   .collect(Collectors.toList());
+    }
+
+    /**
+     * @param client Cliente
+     * @return Soma de todas as transações de um cliente
+     */
+    @Override
+    public Double getTotalMoney(Client client) {
+        return client.getAccounts().stream()
+                     .flatMap(account -> account.getTransactions().stream())
+                     .mapToDouble(Transaction::getAmount)
+                     .sum();
+    }
+
+    /**
+     * @param bank Banco
+     * @return Soma de todas as transações de um banco
+     */
+    @Override
+    public Double getTotalMoney(Bank bank) {
+        return bank.getAccounts().stream()
+                   .flatMap(account -> account.getTransactions().stream())
+                   .mapToDouble(Transaction::getAmount)
+                   .sum();
+    }
+
+    /**
+     * @param bank Banco
+     * @return Lista com os clientes mais ricos de um banco ordenado do maior para o menor
+     */
+    @Override
+    public List<Client> getSortedRichestClients(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .sorted((c1, c2) -> Double.compare(getTotalMoney(c2), getTotalMoney(c1)))
+                   .collect(Collectors.toList());
+    }
+
+    /**
+     * @param bank Banco
+     * @return Lista com os pais dos clientes com menos de 25 anos de um banco
+     */
+    @Override
+    public List<Person> getFathersFromYoungestClients(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .filter(client -> client.getPerson().getAge() < 25)
+                   .map(Client::getPerson)
+                   .map(Person::getFather)
+                   .filter(Optional::isPresent)
+                   .map(Optional::get)
+                   .collect(Collectors.toList());
+    }
+
+    /**
+     * @param bank Banco
+     * @return Criar uma String que represente um relatório com as seguintes colunas (separadas por vírgula):
+     * Nome do cliente, Idade, Total de dinheiro
+     */
+    @Override
+    public String getReportString(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .map(client -> String.format("%s, %d, %.2f",
+                                                client.getPerson().getName(),
+                                                client.getPerson().getAge(),
+                                                getTotalMoney(client)))
+                   .collect(Collectors.joining("\n"));
+    }
+
+    /**
+     * @param bank Banco
+     * @return Lista com os nomes das agências de um banco sem repetições
+     */
+    @Override
+    public Set<String> getAgencies(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getAgency)
+                   .collect(Collectors.toSet());
+    }
+
+    /**
+     * @param bank Banco
+     * @return Lista com os pais dos clientes mais novos (menores de 25 anos) de um banco. 
+     * Para todos os clientes enviar um email promocional dos dias dos pais (A mensagem é um log)
+     * para os clientes que possuem pai, enviar uma mensagem de feliz dias dos pais para o email do pai (A mensagem é um log)
+     */
+    @Override
+    public List<Person> getYoungestClientsFathersAndSendEmails(Bank bank) {
+        List<Person> fathers = bank.getAccounts().stream()
+                                   .map(Account::getClient)
+                                   .filter(client -> client.getPerson().getAge() < 25)
+                                   .map(Client::getPerson)
+                                   .map(Person::getFather)
+                                   .filter(Optional::isPresent)
+                                   .map(Optional::get)
+                                   .collect(Collectors.toList());
+        
+        fathers.forEach(father -> {
+            if (father != null) {
+                System.out.println("Enviando e-mail promocional para " + father.getEmail().orElse("sem e-mail"));
+            }
+        });
+
+        bank.getAccounts().stream()
+            .map(Account::getClient)
+            .filter(client -> client.getPerson().getFather() != null)
+            .forEach(client -> {
+                System.out.println("Enviando mensagem de feliz Dia dos Pais para " + client.getPerson().getFather().getEmail().orElse("sem e-mail"));
+            });
+
+        return fathers;
+    }
+
+    /**
+     * @param client Cliente
+     * @param value Valor a ser comparado
+     * @return Um booleano que indica se o cliente gastou mais que o valor passado em alguma transação
+     */
+    @Override
+    public boolean isClientSpentMoreThan(Client client, Double value) {
+        return client.getAccounts().stream()
+                     .flatMap(account -> account.getTransactions().stream())
+                     .anyMatch(transaction -> transaction.getAmount() > value);
+    }
+
+    /**
+     * @param client Cliente
+     * @return Um booleano que indica se o cliente possui todas as contas ativas (pelo menos uma transação)
+     */
+    @Override
+    public boolean isClientWithAllAccountsActive(Client client) {
+        return client.getAccounts().stream()
+                     .allMatch(account -> !account.getTransactions().isEmpty());
+    }
+
+    /**
+     * @param client Cliente
+     * @return Um booleano que indica se o cliente possui todas as contas inativas (nenhuma transação)
+     */
+    @Override
+    public boolean isClientWithAllAccountsInactive(Client client) {
+        return client.getAccounts().stream()
+                     .allMatch(account -> account.getTransactions().isEmpty());
+    }
+
+    /**
+     * @param client Cliente
+     * @return A quantidade de transações de entrada (value > 0) de um cliente
+     */
+    @Override
+    public Long clientIncomingTransactionsCount(Client client) {
+        return client.getAccounts().stream()
+                     .flatMap(account -> account.getTransactions().stream())
+                     .filter(transaction -> transaction.getAmount() > 0)
+                     .count();
+    }
+
+    /**
+     * @param bank Banco
+     * @param value Valor a ser comparado
+     * @return Lista com os clientes que possuem todas as contas ativas e gastaram mais que o valor passado
+     * em pelo menos uma transação
+     */
+    @Override
+    public List<Client> getClientsWithAllAccountsAtiveAndSpentMoreThan(Bank bank, Double value) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .filter(client -> isClientWithAllAccountsActive(client) &&
+                                     isClientSpentMoreThan(client, value))
+                   .collect(Collectors.toList());
+    }
+}
