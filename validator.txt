@@ -269,3 +269,137 @@ public class MainPlaces {
 }
 
 The method toList() is undefined for the type Collector
+
+
+
+package com.santader.example.impl;
+
+import com.santader.example.NumberList;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class NumberListStreamApiImpl implements NumberList {
+
+
+  /**
+   * @param numbers Lista de números
+   * @return Uma lista com todos os números multiplicados por 2
+   */
+  @Override
+  public List<Integer> mapToDoubledNumbers(List<Integer> numbers) {
+    return null;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return Uma lista com todos os números de todas as listas
+   */
+  @Override
+  public List<Integer> flatMapNumbers(List<List<Integer>> numbers) {
+    return null;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return A mesma lista, porém com os valores ordenados
+   */
+  @Override
+  public List<Integer> getSortedNumbers(List<Integer> numbers) {
+    return null;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return Os números pares da lista
+   */
+  @Override
+  public List<Integer> getEvenNumbers(List<Integer> numbers) {
+    return null;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return Os números ímpares da lista
+   */
+  @Override
+  public List<Integer> getOddNumbers(List<Integer> numbers) {
+    return null;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return A soma de todos os números da lista
+   */
+  @Override
+  public Integer getSumList(List<Integer> numbers) {
+    return null;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return Os números que são maiores que 5, multiplicados por 2,
+   * logar os números que sao maiores que 5 e logar o dobro desse mesmo número também
+   */
+  @Override
+  public List<Integer> getFilteredNumbersAndLog(List<Integer> numbers) {
+    return null;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return String com n linhas e cada linha com x pontos ("."),
+   * onde n é a quantidade de elementos do array e x o número na determinada posição
+   */
+  @Override
+  public String getDotteredString(List<Integer> numbers) {
+    return null;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return Se a lista possui todos os números pares
+   */
+  @Override
+  public boolean isListWithAllNumbersEven(List<Integer> numbers) {
+    return false;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return Se a lista possui números negativos (usando noneMatch)
+   */
+  @Override
+  public boolean isListWithNegativeNumberUsingNoneMatch(List<Integer> numbers) {
+    return false;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return a quantidade de números ímpares da lista
+   */
+  @Override
+  public long getEvenNumbersQuantity(List<Integer> numbers) {
+    return 0;
+  }
+
+  /**
+   * @param numbers      Lista de números
+   * @param defaultValue Valor padrão a ser retornado caso a lista não tenha o número 5 nela
+   * @return Caso a lista tenha o número 5, retorna 5, senão,  defaultValue
+   */
+  @Override
+  public Integer getFirstValueEqualToFiveOrReturnDefaultValue(List<Integer> numbers, Integer defaultValue) {
+    return null;
+  }
+
+  /**
+   * @param numbers Lista de números
+   * @return Se a lista um número negativo
+   */
+  @Override
+  public boolean isListWithNegativeNumber(List<Integer> numbers) {
+    return false;
+  }
+}
