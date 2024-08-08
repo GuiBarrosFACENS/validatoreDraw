@@ -1,144 +1,299 @@
+package com.santader.bank;
 
-    @Override
-    public List<String> getAccountsNumbers(Client client) {
-        return client.getAccounts().stream()
-                     .map(Account::getAccountNumber)
-                     .collect(Collectors.toList());
-    }
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
-    @Override
-    public List<Transaction> getTransactions(Client client) {
-        return client.getAccounts().stream()
-                     .flatMap(account -> account.getTransactions().stream())
-                     .collect(Collectors.toList());
-    }
+public class Client {
+  private Person person;
+  final private List<Account> accounts = new ArrayList<>();
 
-    @Override
-    public List<String> getClientsMotherName(Bank bank) {
-        return bank.getAccounts().stream()
-                   .map(Account::getClient)
-                   .map(client -> client.getMotherName() != null ? client.getMotherName() : "----------")
-                   .collect(Collectors.toList());
-    }
+  public Client(Person person) {
+    this.person = person;
+  }
 
-    @Override
-    public List<Client> getOldestClients(Bank bank) {
-        return bank.getAccounts().stream()
-                   .map(Account::getClient)
-                   .filter(client -> client.getAge() > 40)
-                   .collect(Collectors.toList());
-    }
+  @Override
+  public String toString() {
+    return "Client{" +
+        "person=" + person +
+        "accounts=" + accounts +
+        "}\n";
+  }
 
-    @Override
-    public Double getTotalMoney(Client client) {
-        return client.getAccounts().stream()
-                     .flatMap(account -> account.getTransactions().stream())
-                     .mapToDouble(Transaction::getAmount)
-                     .sum();
-    }
+  public Person getPerson() {
+    return person;
+  }
 
-    @Override
-    public Double getTotalMoney(Bank bank) {
-        return bank.getAccounts().stream()
-                   .flatMap(account -> account.getTransactions().stream())
-                   .mapToDouble(Transaction::getAmount)
-                   .sum();
-    }
-
-    @Override
-    public List<Client> getSortedRichestClients(Bank bank) {
-        return bank.getAccounts().stream()
-                   .map(Account::getClient)
-                   .sorted((c1, c2) -> Double.compare(getTotalMoney(c2), getTotalMoney(c1)))
-                   .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<Person> getFathersFromYoungestClients(Bank bank) {
-        return bank.getAccounts().stream()
-                   .map(Account::getClient)
-                   .filter(client -> client.getAge() < 25)
-                   .map(Client::getFather)
-                   .distinct()
-                   .collect(Collectors.toList());
-    }
-
-    @Override
-    public String getReportString(Bank bank) {
-        return bank.getAccounts().stream()
-                   .map(Account::getClient)
-                   .map(client -> String.format("%s, %d, %.2f",
-                                                client.getName(),
-                                                client.getAge(),
-                                                getTotalMoney(client)))
-                   .collect(Collectors.joining("\n"));
-    }
-
-    @Override
-    public Set<String> getAgencies(Bank bank) {
-        return bank.getAccounts().stream()
-                   .map(Account::getAgency)
-                   .collect(Collectors.toSet());
-    }
-
-    @Override
-    public List<Person> getYoungestClientsFathersAndSendEmails(Bank bank) {
-        List<Person> fathers = bank.getAccounts().stream()
-                                   .map(Account::getClient)
-                                   .filter(client -> client.getAge() < 25)
-                                   .map(Client::getFather)
-                                   .distinct()
-                                   .collect(Collectors.toList());
-        
-        fathers.forEach(father -> {
-            if (father != null) {
-                System.out.println("Enviando e-mail promocional para " + father.getEmail());
-            }
-        });
-
-        bank.getAccounts().stream()
-            .map(Account::getClient)
-            .filter(client -> client.getFather() != null)
-            .forEach(client -> {
-                System.out.println("Enviando mensagem de feliz Dia dos Pais para " + client.getFather().getEmail());
-            });
-
-        return fathers;
-    }
-
-    @Override
-    public boolean isClientSpentMoreThan(Client client, Double value) {
-        return client.getAccounts().stream()
-                     .flatMap(account -> account.getTransactions().stream())
-                     .anyMatch(transaction -> transaction.getAmount() > value);
-    }
-
-    @Override
-    public boolean isClientWithAllAccountsActive(Client client) {
-        return client.getAccounts().stream()
-                     .allMatch(account -> !account.getTransactions().isEmpty());
-    }
-
-    @Override
-    public boolean isClientWithAllAccountsInactive(Client client) {
-        return client.getAccounts().stream()
-                     .allMatch(account -> account.getTransactions().isEmpty());
-    }
-
-    @Override
-    public Long clientIncomingTransactionsCount(Client client) {
-        return client.getAccounts().stream()
-                     .flatMap(account -> account.getTransactions().stream())
-                     .filter(transaction -> transaction.getAmount() > 0)
-                     .count();
-    }
-
-    @Override
-    public List<Client> getClientsWithAllAccountsAtiveAndSpentMoreThan(Bank bank, Double value) {
-        return bank.getAccounts().stream()
-                   .map(Account::getClient)
-                   .filter(client -> isClientWithAllAccountsActive(client) &&
-                                     isClientSpentMoreThan(client, value))
-                   .collect(Collectors.toList());
-    }
+  public List<Account> getAccounts() {
+    return accounts;
+  }
 }
+
+package com.santader.bank;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import java.util.Optional;
+
+public class Person {
+  private String name;
+  private Integer age;
+  private String email;
+  private Person mother;
+  private Person father;
+
+  @JsonIgnore
+  private Client client;
+
+  public Person(String name, Integer age, String email, Person mother, Person father) {
+    this.email = email;
+    this.name = name;
+    this.age = age;
+    this.mother = mother;
+    this.father = father;
+  }
+
+  public Person(String name, Integer age, String email, Person mother) {
+    this.email = email;
+    this.name = name;
+    this.age = age;
+    this.mother = mother;
+    this.father = father;
+  }
+
+  @Override
+  public String toString() {
+    return "Person{" +
+        "name='" + name + '\'' +
+        ", age=" + age +
+        ", email='" + email + '\'' +
+        ", mother=" + mother.getName() +
+        ", father=" + getFather().map(v -> v.getName()).orElse("") +
+        "}";
+  }
+
+  public Optional<String> getEmail() {
+    return Optional.ofNullable(email);
+  }
+
+  public void setEmail(String email) {
+    this.email = email;
+  }
+
+  public Optional<Client> getClient() {
+    return Optional.ofNullable(client);
+  }
+
+  public void setClient(Client client) {
+    this.client = client;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
+  }
+
+  public Integer getAge() {
+    return age;
+  }
+
+  public void setAge(Integer age) {
+    this.age = age;
+  }
+
+  public Optional<Person> getMother() {
+    return Optional.ofNullable(mother);
+  }
+
+  public void setMother(Person mother) {
+    this.mother = mother;
+  }
+
+  public Optional<Person> getFather() {
+    return Optional.ofNullable(father);
+  }
+
+  public void setFather(Person father) {
+    this.father = father;
+  }
+}
+
+package com.santader.example.impl;
+
+import com.santader.bank.Account;
+import com.santader.bank.Bank;
+import com.santader.bank.Client;
+import com.santader.bank.Person;
+import com.santader.bank.Transaction;
+import com.santader.example.BankList;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+public class BankListImpl implements BankList {
+
+  /**
+   * @param client Cliente
+   * @return Lista de númeors das contas de um cliente
+   */
+  @Override
+  public List<String> getAccountsNumbers(Client client) {
+    return client.getAccounts().stream()
+            .map(account -> account.getAccountNumber())
+            .toList();
+  }
+
+  /**
+   * +
+   *
+   * @param client Cliente
+   * @return Lista de transações de um cliente
+   */
+  @Override
+  public List<Transaction> getTransactions(Client client) {
+    return client.getAccounts().stream()
+          .flatMap(account -> account.getTransactions().stream())
+          .toList();
+  }
+
+  /**
+   * @param bank Banco
+   * @return Lista com os nomes das mães dos clientes de um banco
+   */
+  @Override
+  public List<String> getClientsMotherName(Bank bank) {
+
+  }
+
+  /**
+   * @param bank Banco
+   * @return Lista com os clientes com mais de 40 anos de idade
+   */
+  @Override
+  public List<Client> getOldestClients(Bank bank) {
+ 
+  }
+
+  /**
+   * @param client Cliente
+   * @return Soma de todas as transações de um cliente
+   */
+  @Override
+  public Double getTotalMoney(Client client) {
+    return null;
+  }
+
+  /**
+   * @param bank Banco
+   * @return Soma de todas as transações de um banco
+   */
+  @Override
+  public Double getTotalMoney(Bank bank) {
+    return null;
+  }
+
+  /**
+   * @param bank Banco
+   * @return Lista com os clientes mais ricos de um banco ordenado do maior para o menor
+   */
+  @Override
+  public List<Client> getSortedRichestClients(Bank bank) {
+    return null;
+  }
+
+  /**
+   * @param bank Banco
+   * @return Lista com os nomes dos pais dos clientes com menos de 25 anos de um banco
+   */
+  @Override
+  public List<Person> getFathersFromYoungestClients(Bank bank) {
+    return null;
+  }
+
+  /**
+   * @param bank Banco
+   * @return Criar uma String que represente um relatório com as seguintes colunas (separadas por vírgula):<br/>
+   * Nome do cliente, Idade, Total de dinheiro <br>
+   * Ex: <br/>
+   * José da silva, 18, 10,00 <br>
+   * Maria da silva, 25, 100,00 <br>
+   */
+  @Override
+  public String getReportString(Bank bank) {
+    return null;
+  }
+
+  /**
+   * @param bank Bank
+   * @return Lista com os nomes das agências de um banco sem repetições
+   */
+  @Override
+  public Set<String> getAgencies(Bank bank) {
+    return null;
+  }
+
+  /**
+   * @param bank Bank
+   * @return Lista com os pais dos clientes mais novos (menores de 25 anos) de um banco. <br>
+   * Para todos os clientes enviar um email promocional dos dias dos pais (A mensagem é um log)
+   * para os clientes que possuem pai, enviar uma mensagem de feliz dias dos pais para o email do pai (A mensagem é um log)
+   */
+  @Override
+  public List<Person> getYoungestClientsFathersAndSendEmails(Bank bank) {
+    return null;
+  }
+
+  /**
+   * @param client Cliente
+   * @param value  Valor a ser comparado
+   * @return Um booleano que indica se o cliente gastou mais que o valor passado em alguma transação
+   */
+  @Override
+  public boolean isClientSpentMoreThan(Client client, Double value) {
+    return false;
+  }
+
+  /**
+   * @param client Cliente
+   * @return Um booleano que indica se o cliente possui todas as contas ativas (pelo menos uma transação)
+   */
+  @Override
+  public boolean isClientWithAllAccountsActive(Client client) {
+    return false;
+  }
+
+  /**
+   * @param client cliente
+   * @return Um booleano que indica se o cliente possui todas as contas inativas (nenhuma transação)
+   */
+  @Override
+  public boolean isClientWithAllAccountsInactive(Client client) {
+    return false;
+  }
+
+  /**
+   * @param client Cliente
+   * @return A quantiade de transações de entrada (value > 0) de um cliente
+   */
+  @Override
+  public Long clientIncomingTransactionsCount(Client client) {
+    return null;
+  }
+
+  /**
+   * @param bank  Banco
+   * @param value Valor a ser comparado
+   * @return Lista com os clientes que possuem todas as contas ativas e gastaram mais que o valor passado
+   * em pelo menos uma transação
+   */
+  @Override
+  public List<Client> getClientsWithAllAccountsAtiveAndSpentMoreThan(Bank bank, Double value) {
+    return null;
+  }
+}
+
+
