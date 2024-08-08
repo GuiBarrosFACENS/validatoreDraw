@@ -1,21 +1,144 @@
-package com.santader.bank;
 
-import java.util.ArrayList;
-import java.util.List;
+    @Override
+    public List<String> getAccountsNumbers(Client client) {
+        return client.getAccounts().stream()
+                     .map(Account::getAccountNumber)
+                     .collect(Collectors.toList());
+    }
 
-public class Bank {
-  private final String name;
-  private final List<Account> accounts = new ArrayList<>();
+    @Override
+    public List<Transaction> getTransactions(Client client) {
+        return client.getAccounts().stream()
+                     .flatMap(account -> account.getTransactions().stream())
+                     .collect(Collectors.toList());
+    }
 
-  public Bank(String name) {
-    this.name = name;
-  }
+    @Override
+    public List<String> getClientsMotherName(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .map(client -> client.getMotherName() != null ? client.getMotherName() : "----------")
+                   .collect(Collectors.toList());
+    }
 
-  public List<Account> getAccounts() {
-    return accounts;
-  }
+    @Override
+    public List<Client> getOldestClients(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .filter(client -> client.getAge() > 40)
+                   .collect(Collectors.toList());
+    }
 
-  public String getName() {
-    return name;
-  }
+    @Override
+    public Double getTotalMoney(Client client) {
+        return client.getAccounts().stream()
+                     .flatMap(account -> account.getTransactions().stream())
+                     .mapToDouble(Transaction::getAmount)
+                     .sum();
+    }
+
+    @Override
+    public Double getTotalMoney(Bank bank) {
+        return bank.getAccounts().stream()
+                   .flatMap(account -> account.getTransactions().stream())
+                   .mapToDouble(Transaction::getAmount)
+                   .sum();
+    }
+
+    @Override
+    public List<Client> getSortedRichestClients(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .sorted((c1, c2) -> Double.compare(getTotalMoney(c2), getTotalMoney(c1)))
+                   .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Person> getFathersFromYoungestClients(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .filter(client -> client.getAge() < 25)
+                   .map(Client::getFather)
+                   .distinct()
+                   .collect(Collectors.toList());
+    }
+
+    @Override
+    public String getReportString(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .map(client -> String.format("%s, %d, %.2f",
+                                                client.getName(),
+                                                client.getAge(),
+                                                getTotalMoney(client)))
+                   .collect(Collectors.joining("\n"));
+    }
+
+    @Override
+    public Set<String> getAgencies(Bank bank) {
+        return bank.getAccounts().stream()
+                   .map(Account::getAgency)
+                   .collect(Collectors.toSet());
+    }
+
+    @Override
+    public List<Person> getYoungestClientsFathersAndSendEmails(Bank bank) {
+        List<Person> fathers = bank.getAccounts().stream()
+                                   .map(Account::getClient)
+                                   .filter(client -> client.getAge() < 25)
+                                   .map(Client::getFather)
+                                   .distinct()
+                                   .collect(Collectors.toList());
+        
+        fathers.forEach(father -> {
+            if (father != null) {
+                System.out.println("Enviando e-mail promocional para " + father.getEmail());
+            }
+        });
+
+        bank.getAccounts().stream()
+            .map(Account::getClient)
+            .filter(client -> client.getFather() != null)
+            .forEach(client -> {
+                System.out.println("Enviando mensagem de feliz Dia dos Pais para " + client.getFather().getEmail());
+            });
+
+        return fathers;
+    }
+
+    @Override
+    public boolean isClientSpentMoreThan(Client client, Double value) {
+        return client.getAccounts().stream()
+                     .flatMap(account -> account.getTransactions().stream())
+                     .anyMatch(transaction -> transaction.getAmount() > value);
+    }
+
+    @Override
+    public boolean isClientWithAllAccountsActive(Client client) {
+        return client.getAccounts().stream()
+                     .allMatch(account -> !account.getTransactions().isEmpty());
+    }
+
+    @Override
+    public boolean isClientWithAllAccountsInactive(Client client) {
+        return client.getAccounts().stream()
+                     .allMatch(account -> account.getTransactions().isEmpty());
+    }
+
+    @Override
+    public Long clientIncomingTransactionsCount(Client client) {
+        return client.getAccounts().stream()
+                     .flatMap(account -> account.getTransactions().stream())
+                     .filter(transaction -> transaction.getAmount() > 0)
+                     .count();
+    }
+
+    @Override
+    public List<Client> getClientsWithAllAccountsAtiveAndSpentMoreThan(Bank bank, Double value) {
+        return bank.getAccounts().stream()
+                   .map(Account::getClient)
+                   .filter(client -> isClientWithAllAccountsActive(client) &&
+                                     isClientSpentMoreThan(client, value))
+                   .collect(Collectors.toList());
+    }
 }
