@@ -267,3 +267,5 @@ public class MainPlaces {
   }
 
 }
+
+The method toList() is undefined for the type Collector
