@@ -1,288 +1,134 @@
-package com.santader.example.impl;
+package com.santader.example;
 
-import com.santader.example.PlaceList;
-import com.santader.place.City;
-import com.santader.place.Country;
-import com.santader.place.State;
-
-import java.util.List;
-import java.util.Optional;
-
-public class PlaceListImpl implements PlaceList {
-
-  /**
-   * @param country Um país qualquer
-   * @return Uma lista com os nomes dos estados do país
-   */
-  @Override
-  public List<String> getStatesNames(Country country) {
-    return null;
-  }
-
-  /**
-   * @param country Um país qualquer
-   * @return uma lista com os nomes das cidades de um país
-   */
-  @Override
-  public List<String> getCitiesNames(Country country) {
-    return null;
-  }
-
-  /**
-   * @param cities Uma lista de Cidades
-   * @return Uma lista com as cidades ordenadas alfabeticamente
-   */
-  @Override
-  public List<City> getAlphabeticalCities(List<City> cities) {
-    return null;
-  }
-
-  /**
-   * @param cities Uma lista de Cidades
-   * @return Uma lista com as cidades com mais de um milhão de habitantes
-   */
-  @Override
-  public List<City> getCitiesWithMoreThanOneMillionPeople(List<City> cities) {
-    return null;
-  }
-
-  /**
-   * @param state Um estado qualquer
-   * @return A população deste estado
-   */
-  @Override
-  public Integer getStatePopulation(State state) {
-    return null;
-  }
-
-  /**
-   * @param country Um país qualquer
-   * @return A população do país
-   */
-  @Override
-  public Integer getCountryPopulation(Country country) {
-    return null;
-  }
-
-  /**
-   * @param state Um estado qualquer
-   * @return Se o estado possuir uma cidade com mais de 1 milhão de habitantes
-   */
-  @Override
-  public boolean isStateSuperPopulated(State state) {
-    return false;
-  }
-
-  /**
-   * @param state Um estado qualquer
-   * @return Se o estado possuir todas as cidades com mais de 1 milhão de habitantes
-   */
-  @Override
-  public boolean isStateStupidlyPopulated(State state) {
-    return false;
-  }
-
-  /**
-   * @param state Um estado qualquer
-   * @return Se o estado não possuir cidades com mais de 1 milhão de habitantes
-   */
-  @Override
-  public boolean isStateSubPopulated(State state) {
-    return false;
-  }
-
-  /**
-   * @param state Um estado qualquer
-   * @return Quantidade de cidades com população maior que 1 milhão de um estado
-   */
-  @Override
-  public long getStateSuperPopulatedCitiesQuantity(State state) {
-    return 0;
-  }
-
-  /**
-   * @param country  Um país qualquer
-   * @param cityName O nome da cidade a ser buscada
-   * @return A cidade que possua o nome igual cityName
-   */
-  @Override
-  public Optional<City> findCity(Country country, String cityName) {
-    return Optional.empty();
-  }
-}
-package com.santader.example.impl;
-
-import com.santader.example.PlaceList;
-import com.santader.place.City;
-import com.santader.place.Country;
-import com.santader.place.State;
+import com.santader.bank.Bank;
+import com.santader.bank.Client;
+import com.santader.bank.Person;
+import com.santader.bank.Transaction;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 
-public class PlaceListImpl implements PlaceList {
+public interface BankList {
+  /**
+   * @param client Cliente
+   * @return Lista de númeors das contas de um cliente
+   */
+  List<String> getAccountsNumbers(Client client);
 
   /**
-   * @param country Um país qualquer
-   * @return Uma lista com os nomes dos estados do país
+   * +
+   *
+   * @param client Cliente
+   * @return Lista de transações de um cliente
    */
-  @Override
-  public List<String> getStatesNames(Country country) {
-    return null;
-  }
+  List<Transaction> getTransactions(Client client);
 
   /**
-   * @param country Um país qualquer
-   * @return uma lista com os nomes das cidades de um país
+   *
+   * @param bank Banco
+   * @return Lista com os nomes das mães dos clientes de um banco (para clientes sem mae no cadastro: "----------")`
    */
-  @Override
-  public List<String> getCitiesNames(Country country) {
-    return null;
-  }
+  List<String> getClientsMotherName(Bank bank);
 
   /**
-   * @param cities Uma lista de Cidades
-   * @return Uma lista com as cidades ordenadas alfabeticamente
+   *
+   * @param bank Banco
+   * @return Lista com os clientes com mais de 40 anos de idade
    */
-  @Override
-  public List<City> getAlphabeticalCities(List<City> cities) {
-    return null;
-  }
+  List<Client> getOldestClients(Bank bank);
 
   /**
-   * @param cities Uma lista de Cidades
-   * @return Uma lista com as cidades com mais de um milhão de habitantes
+   *
+   * @param client Cliente
+   * @return Soma de todas as transações de um cliente
    */
-  @Override
-  public List<City> getCitiesWithMoreThanOneMillionPeople(List<City> cities) {
-    return null;
-  }
+  Double getTotalMoney(Client client);
 
   /**
-   * @param state Um estado qualquer
-   * @return A população deste estado
+   *
+   * @param bank Banco
+   * @return Soma de todas as transações de um banco
    */
-  @Override
-  public Integer getStatePopulation(State state) {
-    return null;
-  }
+  Double getTotalMoney(Bank bank);
 
   /**
-   * @param country Um país qualquer
-   * @return A população do país
+   *
+   * @param bank Banco
+   * @return Lista com os clientes mais ricos de um banco ordenado do maior para o menor
    */
-  @Override
-  public Integer getCountryPopulation(Country country) {
-    return null;
-  }
+  List<Client> getSortedRichestClients(Bank bank);
 
   /**
-   * @param state Um estado qualquer
-   * @return Se o estado possuir uma cidade com mais de 1 milhão de habitantes
+   *
+   * @param bank Banco
+   * @return Lista com os nomes dos pais dos clientes com menos de 25 anos de um banco
    */
-  @Override
-  public boolean isStateSuperPopulated(State state) {
-    return false;
-  }
+  List<Person> getFathersFromYoungestClients(Bank bank);
 
   /**
-   * @param state Um estado qualquer
-   * @return Se o estado possuir todas as cidades com mais de 1 milhão de habitantes
+   *
+   * @param bank Banco
+   * @return Criar uma String que represente um relatório com as seguintes colunas (separadas por vírgula):<br/>
+   * Nome do cliente, Idade, Total de dinheiro <br>
+   * Ex: <br/>
+   *  José da silva, 18, 10,00 <br>
+   *  Maria da silva, 25, 100,00 <br>
    */
-  @Override
-  public boolean isStateStupidlyPopulated(State state) {
-    return false;
-  }
+  String getReportString(Bank bank);
 
   /**
-   * @param state Um estado qualquer
-   * @return Se o estado não possuir cidades com mais de 1 milhão de habitantes
+   *
+   * @param bank Bank
+   * @return Lista com os nomes das agências de um banco sem repetições
    */
-  @Override
-  public boolean isStateSubPopulated(State state) {
-    return false;
-  }
+  Set<String> getAgencies(Bank bank);
 
   /**
-   * @param state Um estado qualquer
-   * @return Quantidade de cidades com população maior que 1 milhão de um estado
+   *
+   * @param bank Bank
+   * @return Lista com os pais dos clientes mais novos (menores de 25 anos) de um banco. <br>
+   * Para todos os clientes enviar um email promocional dos dias dos pais (A mensagem é um log)
+   * para os clientes que possuem pai, enviar uma mensagem de feliz dias dos pais para o email do pai (A mensagem é um log)
+   *
    */
-  @Override
-  public long getStateSuperPopulatedCitiesQuantity(State state) {
-    return 0;
-  }
+  List<Person> getYoungestClientsFathersAndSendEmails(Bank bank);
 
   /**
-   * @param country  Um país qualquer
-   * @param cityName O nome da cidade a ser buscada
-   * @return A cidade que possua o nome igual cityName
+   *
+   * @param client Cliente
+   * @param value Valor a ser comparado
+   * @return Um booleano que indica se o cliente gastou mais que o valor passado em alguma transação
    */
-  @Override
-  public Optional<City> findCity(Country country, String cityName) {
-    return Optional.empty();
-  }
-}
+  boolean isClientSpentMoreThan(Client client, Double value);
 
+  /**
+   *
+   * @param client Cliente
+   * @return Um booleano que indica se o cliente possui todas as contas ativas (pelo menos uma transação)
+   */
+  boolean isClientWithAllAccountsActive(Client client);
 
-package com.santader;
+  /**
+   *
+   * @param client cliente
+   * @return Um booleano que indica se o cliente possui todas as contas inativas (nenhuma transação)
+   * */
+  boolean isClientWithAllAccountsInactive(Client client);
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.santader.example.impl.PlaceListImpl;
-import com.santader.place.City;
-import com.santader.place.Country;
-import com.santader.place.State;
+  /**
+   *
+   * @param client Cliente
+   * @return A quantiade de transações de entrada (value > 0) de um cliente
+   */
+  Long clientIncomingTransactionsCount(Client client);
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class MainPlaces {
-  private static final PlaceListImpl placeList = new PlaceListImpl();
-
-  public static List<City> cities = new ArrayList<>();
-  public static List<State> states = new ArrayList<>();
-  public static Country country;
-  public static City city;
-  public static State state;
-  public static void main(String[] args) throws JsonProcessingException {
-    initiPlacesData();
-
-    var res = placeList.getStatesNames(country);
-//    var res = placeList.getCitiesNames(country);
-//    var res = placeList.getAlphabeticalCities(cities);
-//    var res = placeList.getCitiesWithMoreThanOneMillionPeople(cities);
-//    var res = placeList.getStatePopulation(state);
-//    var res = placeList.getCountryPopulation(country);
-//    var red7 = placeList.isStateSuperPopulated(state);
-//    var res = placeList.isStateStupidlyPopulated(state);
-//    var res = placeList.isStateSubPopulated(state);
-//    var res = placeList.getStateSuperPopulatedCitiesQuantity(state);
-//    var res = placeList.findCity(country, "São Paulo");
-
-    System.out.println(res);
-  }
-
-  public static void initiPlacesData() {
-    Country brazil = new Country("Brasil");
-    country = brazil;
-
-    State sp = new State("São Paulo", "SP", brazil);
-    State rj = new State("Rio de Janeiro", "RJ", brazil);
-    State ro = new State("Rondônia", "RO", brazil);
-    states.addAll(List.of(sp, rj, ro));
-    state = sp;
-
-    City saoPaulo = new City("São Paulo", sp, 12000000);
-    City campinas = new City("Campinas", sp, 2000000);
-    City saoJose = new City("São José dos Campos", sp, 900000);
-
-    City rioDeJaneiro = new City("Rio de Janeiro", rj, 6000000);
-    City niteroi = new City("Niterói", rj, 500000);
-
-    City portoVelho = new City("Porto Velho", ro, 400000);
-
-    city = saoPaulo;
-
-    cities.addAll(List.of(saoPaulo, campinas, saoJose, rioDeJaneiro, niteroi, portoVelho));
-  }
+  /**
+   *
+   * @param bank Banco
+   * @param value Valor a ser comparado
+   * @return Lista com os clientes que possuem todas as contas ativas e gastaram mais que o valor passado
+   * em pelo menos uma transação
+   */
+  List<Client> getClientsWithAllAccountsAtiveAndSpentMoreThan(Bank bank, Double value);
 
 }
