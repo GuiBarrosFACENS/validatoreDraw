@@ -1,134 +1,567 @@
-package com.santader.example;
+package com.santander.example.impl;
 
-import com.santader.bank.Bank;
-import com.santader.bank.Client;
-import com.santader.bank.Person;
-import com.santader.bank.Transaction;
+import com.santader.bank.*;
+import com.santader.example.BankList;
+import com.santader.example.impl.BankListImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public interface BankList {
-  /**
-   * @param client Cliente
-   * @return Lista de númeors das contas de um cliente
-   */
-  List<String> getAccountsNumbers(Client client);
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.*;
 
-  /**
-   * +
-   *
-   * @param client Cliente
-   * @return Lista de transações de um cliente
-   */
-  List<Transaction> getTransactions(Client client);
+public class BankListImplTest {
 
-  /**
-   *
-   * @param bank Banco
-   * @return Lista com os nomes das mães dos clientes de um banco (para clientes sem mae no cadastro: "----------")`
-   */
-  List<String> getClientsMotherName(Bank bank);
+  private BankList bankList;
+  private Client client;
+  private Bank bank;
+  private Account account;
+  private Transaction transaction;
+  private Person person;
+  private Person father;
 
-  /**
-   *
-   * @param bank Banco
-   * @return Lista com os clientes com mais de 40 anos de idade
-   */
-  List<Client> getOldestClients(Bank bank);
+  private List<Account> mockedClientAccounts;
+  private Stream<Account> mockedClientAccountStream;
 
-  /**
-   *
-   * @param client Cliente
-   * @return Soma de todas as transações de um cliente
-   */
-  Double getTotalMoney(Client client);
+  private List<Account> mockedBankAccounts;
+  private Stream<Account> mockedBankAccountStream;
+  private Stream<Transaction> mockedTransactionStream;
+  private Stream<Client> mockedClientStream;
 
-  /**
-   *
-   * @param bank Banco
-   * @return Soma de todas as transações de um banco
-   */
-  Double getTotalMoney(Bank bank);
+  @BeforeEach
+  void setUp() {
+    bankList = new BankListImpl();
+    client = mock(Client.class);
+    bank = mock(Bank.class);
+    account = mock(Account.class);
+    transaction = mock(Transaction.class);
+    person = mock(Person.class);
+    father = mock(Person.class);
+  }
 
-  /**
-   *
-   * @param bank Banco
-   * @return Lista com os clientes mais ricos de um banco ordenado do maior para o menor
-   */
-  List<Client> getSortedRichestClients(Bank bank);
+  public void mockStreamApi() {
+    mockedClientAccounts = mock(List.class);
+    mockedClientAccountStream = mock(Stream.class);
+    mockedBankAccounts = mock(List.class);
+    mockedBankAccountStream = mock(Stream.class);
+    mockedTransactionStream = mock(Stream.class);
+    mockedClientStream = mock(Stream.class);
 
-  /**
-   *
-   * @param bank Banco
-   * @return Lista com os nomes dos pais dos clientes com menos de 25 anos de um banco
-   */
-  List<Person> getFathersFromYoungestClients(Bank bank);
+    when(client.getAccounts()).thenReturn(mockedClientAccounts);
+    when(mockedClientAccounts.stream()).thenReturn(mockedClientAccountStream);
 
-  /**
-   *
-   * @param bank Banco
-   * @return Criar uma String que represente um relatório com as seguintes colunas (separadas por vírgula):<br/>
-   * Nome do cliente, Idade, Total de dinheiro <br>
-   * Ex: <br/>
-   *  José da silva, 18, 10,00 <br>
-   *  Maria da silva, 25, 100,00 <br>
-   */
-  String getReportString(Bank bank);
+    when(bank.getAccounts()).thenReturn(mockedBankAccounts);
+    when(mockedBankAccounts.stream()).thenReturn(mockedBankAccountStream);
 
-  /**
-   *
-   * @param bank Bank
-   * @return Lista com os nomes das agências de um banco sem repetições
-   */
-  Set<String> getAgencies(Bank bank);
+  }
 
-  /**
-   *
-   * @param bank Bank
-   * @return Lista com os pais dos clientes mais novos (menores de 25 anos) de um banco. <br>
-   * Para todos os clientes enviar um email promocional dos dias dos pais (A mensagem é um log)
-   * para os clientes que possuem pai, enviar uma mensagem de feliz dias dos pais para o email do pai (A mensagem é um log)
-   *
-   */
-  List<Person> getYoungestClientsFathersAndSendEmails(Bank bank);
+  @Nested
+  class GetAccountsNumbers {
+    @Test
+    void methodReturnsCorrectly() {
+      when(client.getAccounts()).thenReturn(List.of(account));
+      when(account.getAccountNumber()).thenReturn("12345");
 
-  /**
-   *
-   * @param client Cliente
-   * @param value Valor a ser comparado
-   * @return Um booleano que indica se o cliente gastou mais que o valor passado em alguma transação
-   */
-  boolean isClientSpentMoreThan(Client client, Double value);
+      List<String> accountNumbers = bankList.getAccountsNumbers(client);
 
-  /**
-   *
-   * @param client Cliente
-   * @return Um booleano que indica se o cliente possui todas as contas ativas (pelo menos uma transação)
-   */
-  boolean isClientWithAllAccountsActive(Client client);
+      assertEquals(List.of("12345"), accountNumbers);
+    }
 
-  /**
-   *
-   * @param client cliente
-   * @return Um booleano que indica se o cliente possui todas as contas inativas (nenhuma transação)
-   * */
-  boolean isClientWithAllAccountsInactive(Client client);
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
 
-  /**
-   *
-   * @param client Cliente
-   * @return A quantiade de transações de entrada (value > 0) de um cliente
-   */
-  Long clientIncomingTransactionsCount(Client client);
+      bankList.getAccountsNumbers(client);
 
-  /**
-   *
-   * @param bank Banco
-   * @param value Valor a ser comparado
-   * @return Lista com os clientes que possuem todas as contas ativas e gastaram mais que o valor passado
-   * em pelo menos uma transação
-   */
-  List<Client> getClientsWithAllAccountsAtiveAndSpentMoreThan(Bank bank, Double value);
+      verify(client, times(1)).getAccounts();
+      verify(mockedClientAccounts, times(1)).stream();
+      verify(mockedClientAccountStream, times(1)).map(any());
 
+    }
+  }
+
+  @Nested
+  class GetTransactions {
+    @Test
+    void methodReturnsCorrectly() {
+      when(client.getAccounts()).thenReturn(List.of(account));
+      when(account.getTransactions()).thenReturn(List.of(transaction));
+
+      List<Transaction> transactions = bankList.getTransactions(client);
+
+      assertEquals(List.of(transaction), transactions);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      bankList.getTransactions(client);
+
+      verify(client, times(1)).getAccounts();
+      verify(mockedClientAccounts, times(1)).stream();
+      verify(mockedClientAccountStream, times(1)).flatMap(any());
+
+    }
+  }
+
+  @Nested
+  class GetClientsMotherName {
+    @Test
+    void methodReturnsCorrectly() {
+      when(bank.getAccounts()).thenReturn(List.of(account));
+      when(account.getClient()).thenReturn(client);
+      when(client.getPerson()).thenReturn(person);
+      when(person.getMother()).thenReturn(Optional.of(person));
+      when(person.getName()).thenReturn("Jane Doe");
+
+      List<String> motherNames = bankList.getClientsMotherName(bank);
+
+      assertEquals(List.of("Jane Doe"), motherNames);
+    }
+
+    @Test
+    void methodReturnsCorrectlyWithoutMother() {
+      when(bank.getAccounts()).thenReturn(List.of(account));
+      when(account.getClient()).thenReturn(client);
+      when(client.getPerson()).thenReturn(person);
+      when(person.getMother()).thenReturn(Optional.empty());
+      when(person.getName()).thenReturn("Jane Doe");
+
+      List<String> motherNames = bankList.getClientsMotherName(bank);
+
+      assertEquals(List.of("----------"), motherNames);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      bankList.getClientsMotherName(bank);
+
+      verify(bank, times(1)).getAccounts();
+      verify(mockedBankAccounts, times(1)).stream();
+      verify(mockedBankAccountStream, times(1)).map(any());
+
+    }
+  }
+
+  @Nested
+  class GetOldestClients {
+    @Test
+    void methodReturnsCorrectly() {
+      when(bank.getAccounts()).thenReturn(List.of(account));
+      when(account.getClient()).thenReturn(client);
+      when(client.getPerson()).thenReturn(person);
+      when(person.getAge()).thenReturn(45);
+
+      List<Client> oldestClients = bankList.getOldestClients(bank);
+
+      assertEquals(List.of(client), oldestClients);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      when(account.getClient()).thenReturn(client);
+      when(client.getPerson()).thenReturn(person);
+      when(person.getAge()).thenReturn(45);
+
+      bankList.getOldestClients(bank);
+
+      verify(bank, times(1)).getAccounts();
+      verify(mockedBankAccountStream, times(1)).map(any());
+    }
+  }
+
+  @Nested
+  class GetTotalMoneyClient {
+    @Test
+    void methodReturnsCorrectly() {
+      when(client.getAccounts()).thenReturn(List.of(account));
+      when(account.getTransactions()).thenReturn(List.of(transaction));
+      when(transaction.getValue()).thenReturn(100.0);
+
+      Double totalMoney = bankList.getTotalMoney(client);
+
+      assertEquals(100.0, totalMoney);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      Stream mockedStream = mock(Stream.class);
+      when(mockedClientAccountStream.flatMap(any())).thenReturn(((Stream) (mockedTransactionStream)));
+      when(mockedTransactionStream.map(any())).thenReturn(mockedStream);
+
+      bankList.getTotalMoney(client);
+
+      verify(client).getAccounts();
+      verify(mockedClientAccountStream).flatMap(any());
+      verify(mockedTransactionStream).map(any());
+      verify(mockedStream).reduce(any(), any());
+    }
+  }
+
+  @Nested
+  class GetTotalMoneyBank {
+    @Test
+    void methodReturnsCorrectly() {
+      when(bank.getAccounts()).thenReturn(List.of(account));
+      when(account.getTransactions()).thenReturn(List.of(transaction));
+      when(transaction.getValue()).thenReturn(100.0);
+
+      Double totalMoney = bankList.getTotalMoney(bank);
+
+      assertEquals(100.0, totalMoney);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      Stream mockedStream = mock(Stream.class);
+      when(mockedBankAccountStream.flatMap(any())).thenReturn(((Stream) (mockedTransactionStream)));
+      when(mockedTransactionStream.map(any())).thenReturn(mockedStream);
+
+      bankList.getTotalMoney(bank);
+
+      verify(bank).getAccounts();
+      verify(mockedBankAccountStream).flatMap(any());
+      verify(mockedTransactionStream).map(any());
+      verify(mockedStream).reduce(any(), any());
+    }
+  }
+
+  @Nested
+  class GetSortedRichestClients {
+    @Test
+    void methodReturnsCorrectly() {
+      Client client1 = mock(Client.class);
+      Client client2 = mock(Client.class);
+
+      Account account1 = mock(Account.class);
+      Account account2 = mock(Account.class);
+
+      Transaction transaction1 = mock(Transaction.class);
+      Transaction transaction2 = mock(Transaction.class);
+
+      when(bank.getAccounts()).thenReturn(List.of(account1, account2));
+      when(account1.getClient()).thenReturn(client1);
+      when(account2.getClient()).thenReturn(client2);
+      when(client1.getAccounts()).thenReturn(List.of(account1));
+      when(client2.getAccounts()).thenReturn(List.of(account2));
+      when(account1.getTransactions()).thenReturn(List.of(transaction1));
+      when(account2.getTransactions()).thenReturn(List.of(transaction2));
+      when(transaction1.getValue()).thenReturn(200.0);
+      when(transaction2.getValue()).thenReturn(100.0);
+
+      List<Client> sortedClients = bankList.getSortedRichestClients(bank);
+
+      assertEquals(List.of(client1, client2), sortedClients);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      Stream mockedStream = mock(Stream.class);
+      when(mockedBankAccountStream.map(any())).thenReturn(((Stream) (mockedClientStream)));
+      when(mockedClientStream.sorted(any())).thenReturn(mockedStream);
+
+      bankList.getSortedRichestClients(bank);
+
+      verify(bank).getAccounts();
+      verify(mockedBankAccountStream).map(any());
+      verify(mockedClientStream).sorted(any());
+      verify(mockedStream).toList();
+    }
+  }
+
+  @Nested
+  class GetFathersFromYoungestClients {
+    @Test
+    void methodReturnsCorrectly() {
+      when(bank.getAccounts()).thenReturn(List.of(account));
+      when(account.getClient()).thenReturn(client);
+      when(client.getPerson()).thenReturn(person);
+      when(person.getAge()).thenReturn(20);
+      when(person.getFather()).thenReturn(java.util.Optional.of(father));
+
+      List<Person> fathers = bankList.getFathersFromYoungestClients(bank);
+
+      assertEquals(List.of(father), fathers);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      Stream mockedPersonStream = mock(Stream.class);
+
+      when(mockedBankAccountStream.map(any())).thenReturn(((mockedPersonStream)));
+      when(mockedPersonStream.map(any())).thenReturn(mockedPersonStream);
+      when(mockedPersonStream.filter(any())).thenReturn(mockedPersonStream);
+
+      bankList.getFathersFromYoungestClients(bank);
+
+      verify(bank).getAccounts();
+      verify(mockedBankAccountStream).map(any());
+      verify(mockedPersonStream).filter(any());
+      verify(mockedPersonStream).map(any());
+      verify(mockedPersonStream).toList();
+    }
+
+  }
+
+  @Nested
+  class GetReportString {
+    @Test
+    void methodReturnsCorrectly() {
+      when(bank.getAccounts()).thenReturn(List.of(account));
+      when(account.getClient()).thenReturn(client);
+      when(client.getPerson()).thenReturn(person);
+      when(person.getName()).thenReturn("John Doe");
+      when(person.getAge()).thenReturn(30);
+      when(client.getAccounts()).thenReturn(List.of(account));
+      when(account.getTransactions()).thenReturn(List.of(transaction));
+      when(transaction.getValue()).thenReturn(100.0);
+
+      String report = bankList.getReportString(bank);
+
+      assertEquals("John Doe, 30, 100,00", report);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      Stream mockedStream = mock(Stream.class);
+
+      when(mockedBankAccountStream.map(any())).thenReturn(((Stream) (mockedClientStream)));
+      when(mockedClientStream.map(any())).thenReturn(mockedStream);
+
+      bankList.getReportString(bank);
+
+      verify(bank).getAccounts();
+      verify(mockedBankAccountStream).map(any());
+      verify(mockedStream).collect(any(Collectors.joining().getClass()));
+    }
+  }
+
+  @Nested
+  class GetAgencies {
+    @Test
+    void methodReturnsCorrectly() {
+      when(bank.getAccounts()).thenReturn(List.of(account));
+      when(account.getAgengy()).thenReturn("Agency1");
+
+      Set<String> agencies = bankList.getAgencies(bank);
+
+      assertEquals(Set.of("Agency1"), agencies);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      Stream mockedStream = mock(Stream.class);
+
+      when(mockedBankAccountStream.map(any())).thenReturn(((mockedStream)));
+
+      bankList.getAgencies(bank);
+
+      verify(bank).getAccounts();
+      verify(mockedBankAccountStream).map(any());
+      verify(mockedStream).collect(any(Collectors.toSet().getClass()));
+    }
+  }
+
+  @Nested
+  class GetYoungestClientsFathersAndSendEmails {
+    @Test
+    void methodReturnsCorrectly() {
+      when(bank.getAccounts()).thenReturn(List.of(account));
+      when(account.getClient()).thenReturn(client);
+      when(client.getPerson()).thenReturn(person);
+      when(person.getAge()).thenReturn(20);
+      when(person.getEmail()).thenReturn(Optional.of("client@example.com"));
+      when(person.getFather()).thenReturn(java.util.Optional.of(father));
+      when(father.getEmail()).thenReturn(Optional.of("father@example.com"));
+
+      List<Person> fathers = bankList.getYoungestClientsFathersAndSendEmails(bank);
+
+      assertEquals(List.of(father), fathers);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      Stream mockedPersonStream = mock(Stream.class);
+
+      when(mockedBankAccountStream.map(any())).thenReturn(((mockedPersonStream)));
+      when(mockedPersonStream.filter(any())).thenReturn(mockedPersonStream);
+      when(mockedPersonStream.peek(any())).thenReturn(mockedPersonStream);
+      when(mockedPersonStream.map(any())).thenReturn(mockedPersonStream);
+
+      bankList.getYoungestClientsFathersAndSendEmails(bank);
+
+      verify(bank).getAccounts();
+      verify(mockedBankAccountStream).map(any());
+      verify(mockedPersonStream, times(2)).filter(any());
+      verify(mockedPersonStream, times(1)).map(any());
+      verify(mockedPersonStream, times(2)).peek(any());
+      verify(mockedPersonStream).toList();
+    }
+  }
+
+  @Nested
+  class IsClientSpentMoreThan {
+    @Test
+    void methodReturnsCorrectly() {
+      when(client.getAccounts()).thenReturn(List.of(account));
+      when(account.getTransactions()).thenReturn(List.of(transaction));
+      when(transaction.getValue()).thenReturn(200.0);
+
+      boolean result = bankList.isClientSpentMoreThan(client, 100.0);
+
+      assertTrue(result);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      Stream mockedStream = mock(Stream.class);
+
+      when(mockedClientAccountStream.flatMap(any())).thenReturn((Stream) mockedTransactionStream);
+      when(mockedTransactionStream.map(any())).thenReturn(mockedStream);
+      bankList.isClientSpentMoreThan(client, 100.0);
+
+      verify(client).getAccounts();
+      verify(mockedClientAccounts).stream();
+      verify(mockedClientAccountStream).flatMap(any());
+      verify(mockedTransactionStream).map(any());
+      verify(mockedStream).anyMatch(any());
+    }
+  }
+
+  @Nested
+  class IsClientWithAllAccountsActive {
+    @Test
+    void methodReturnsCorrectly() {
+      when(client.getAccounts()).thenReturn(List.of(account));
+      when(account.getTransactions()).thenReturn(List.of(transaction));
+      when(transaction.getValue()).thenReturn(100.0);
+
+      boolean result = bankList.isClientWithAllAccountsActive(client);
+
+      assertTrue(result);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      bankList.isClientWithAllAccountsActive(client);
+
+      verify(client).getAccounts();
+      verify(mockedClientAccounts).stream();
+      verify(mockedClientAccountStream).allMatch(any());
+    }
+  }
+
+  @Nested
+  class IsClientWithAllAccountsInactive {
+    @Test
+    void methodReturnsCorrectly() {
+      when(client.getAccounts()).thenReturn(List.of(account));
+      when(account.getTransactions()).thenReturn(List.of());
+
+      boolean result = bankList.isClientWithAllAccountsInactive(client);
+
+      assertTrue(result);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      bankList.isClientWithAllAccountsInactive(client);
+
+      verify(client).getAccounts();
+      verify(mockedClientAccounts).stream();
+      verify(mockedClientAccountStream).allMatch(any());
+    }
+  }
+
+  @Nested
+  class ClientIncomingTransactionsCount {
+    @Test
+    void methodReturnsCorrectly() {
+      when(client.getAccounts()).thenReturn(List.of(account));
+      when(account.getTransactions()).thenReturn(List.of(transaction));
+      when(transaction.getIncomingAccount()).thenReturn(account);
+      when(account.getClient()).thenReturn(client);
+
+      Long count = bankList.clientIncomingTransactionsCount(client);
+
+      assertEquals(1L, count);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      when(mockedClientAccountStream.flatMap(any())).thenReturn((Stream) mockedTransactionStream);
+      when(mockedTransactionStream.filter(any())).thenReturn(mockedTransactionStream);
+
+      bankList.clientIncomingTransactionsCount(client);
+
+      verify(client).getAccounts();
+      verify(mockedClientAccounts).stream();
+      verify(mockedClientAccountStream).flatMap(any());
+      verify(mockedTransactionStream).filter(any());
+      verify(mockedTransactionStream).count();
+
+    }
+  }
+
+  @Nested
+  class GetClientsWithAllAccountsAtiveAndSpentMoreThan {
+    @Test
+    void methodReturnsCorrectly() {
+      when(bank.getAccounts()).thenReturn(List.of(account));
+      when(account.getTransactions()).thenReturn(List.of(transaction));
+      when(transaction.getValue()).thenReturn(200.0);
+      when(account.getClient()).thenReturn(client);
+
+      List<Client> clients = bankList.getClientsWithAllAccountsAtiveAndSpentMoreThan(bank, 100.0);
+
+      assertEquals(List.of(client), clients);
+    }
+
+    @Test
+    void methodUsesStreamApiCorrectly() {
+      mockStreamApi();
+
+      when(mockedBankAccountStream.filter(any())).thenReturn(mockedBankAccountStream);
+      bankList.getClientsWithAllAccountsAtiveAndSpentMoreThan(bank, 100.0);
+
+      verify(bank).getAccounts();
+      verify(mockedBankAccounts).stream();
+      verify(mockedBankAccountStream, times(2)).filter(any());
+      verify(mockedBankAccountStream).map(any());
+    }
+  }
 }
