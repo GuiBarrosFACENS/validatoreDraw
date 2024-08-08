@@ -1,1 +1,112 @@
 
+
+public class Account {
+  private final String accountNumber;
+  @JsonIgnore
+  private final Client client;
+  private final String agengy;
+  private Double balance = 0.0;
+  private final List<Transaction> transactions = new ArrayList<>();
+  private final Bank bank;
+
+
+  public Account(String accountNumber, String agency, Client client, Double initialBalance, Bank bank) {
+    this.agengy = agency;
+    this.accountNumber = accountNumber;
+    this.client = client;
+    this.balance = initialBalance;
+
+    this.bank = bank;
+    bank.getAccounts().add(this);
+
+    client.getAccounts().add(this);
+  }
+
+  @Override
+  public String toString() {
+    return "{" +
+        "accountNumber='" + accountNumber + '\'' +
+        ", agengy='" + agengy + '\'' +
+        ", balance=" + balance +
+        ", transactions=" + transactions +
+        "}";
+  }
+
+public class Bank {
+  private final String name;
+  private final List<Account> accounts = new ArrayList<>();
+
+  public Bank(String name) {
+    this.name = name;
+  }
+
+  public List<Account> getAccounts() {
+    return accounts;
+  }
+
+  public String getName() {
+    return name;
+  }
+}
+
+public class Client {
+  private Person person;
+  final private List<Account> accounts = new ArrayList<>();
+
+  public Client(Person person) {
+    this.person = person;
+  }
+
+  @Override
+  public String toString() {
+    return "Client{" +
+        "person=" + person +
+        "accounts=" + accounts +
+        "}\n";
+  }
+
+  public Person getPerson() {
+    return person;
+  }
+
+  public List<Account> getAccounts() {
+    return accounts;
+  }
+}
+
+public class Person {
+  private String name;
+  private Integer age;
+  private String email;
+  private Person mother;
+  private Person father;
+
+  @JsonIgnore
+  private Client client;
+
+  public Person(String name, Integer age, String email, Person mother, Person father) {
+    this.email = email;
+    this.name = name;
+    this.age = age;
+    this.mother = mother;
+    this.father = father;
+  }
+
+  public Person(String name, Integer age, String email, Person mother) {
+    this.email = email;
+    this.name = name;
+    this.age = age;
+    this.mother = mother;
+    this.father = father;
+  }
+
+  @Override
+  public String toString() {
+    return "Person{" +
+        "name='" + name + '\'' +
+        ", age=" + age +
+        ", email='" + email + '\'' +
+        ", mother=" + mother.getName() +
+        ", father=" + getFather().map(v -> v.getName()).orElse("") +
+        "}";
+  }
