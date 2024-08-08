@@ -1,405 +1,224 @@
-
-
-public class Account {
-  private final String accountNumber;
-  @JsonIgnore
-  private final Client client;
-  private final String agengy;
-  private Double balance = 0.0;
-  private final List<Transaction> transactions = new ArrayList<>();
-  private final Bank bank;
-
-
-  public Account(String accountNumber, String agency, Client client, Double initialBalance, Bank bank) {
-    this.agengy = agency;
-    this.accountNumber = accountNumber;
-    this.client = client;
-    this.balance = initialBalance;
-
-    this.bank = bank;
-    bank.getAccounts().add(this);
-
-    client.getAccounts().add(this);
-  }
-
-  @Override
-  public String toString() {
-    return "{" +
-        "accountNumber='" + accountNumber + '\'' +
-        ", agengy='" + agengy + '\'' +
-        ", balance=" + balance +
-        ", transactions=" + transactions +
-        "}";
-  }
-
-public class Bank {
-  private final String name;
-  private final List<Account> accounts = new ArrayList<>();
-
-  public Bank(String name) {
-    this.name = name;
-  }
-
-  public List<Account> getAccounts() {
-    return accounts;
-  }
-
-  public String getName() {
-    return name;
-  }
-}
-
-public class Client {
-  private Person person;
-  final private List<Account> accounts = new ArrayList<>();
-
-  public Client(Person person) {
-    this.person = person;
-  }
-
-  @Override
-  public String toString() {
-    return "Client{" +
-        "person=" + person +
-        "accounts=" + accounts +
-        "}\n";
-  }
-
-  public Person getPerson() {
-    return person;
-  }
-
-  public List<Account> getAccounts() {
-    return accounts;
-  }
-}
-
-public class Person {
-  private String name;
-  private Integer age;
-  private String email;
-  private Person mother;
-  private Person father;
-
-  @JsonIgnore
-  private Client client;
-
-  public Person(String name, Integer age, String email, Person mother, Person father) {
-    this.email = email;
-    this.name = name;
-    this.age = age;
-    this.mother = mother;
-    this.father = father;
-  }
-
-  public Person(String name, Integer age, String email, Person mother) {
-    this.email = email;
-    this.name = name;
-    this.age = age;
-    this.mother = mother;
-    this.father = father;
-  }
-
-  @Override
-  public String toString() {
-    return "Person{" +
-        "name='" + name + '\'' +
-        ", age=" + age +
-        ", email='" + email + '\'' +
-        ", mother=" + mother.getName() +
-        ", father=" + getFather().map(v -> v.getName()).orElse("") +
-        "}";
-  }
-
-
-
------
-
-
-public class MainBank {
-  private static final ObjectMapper mapper = new ObjectMapper();
-  private static final BankList bankList = new BankListImpl();
-
-  public static Bank bank;
-  public static Client client;
-
-  public static void main(String[] args) throws JsonProcessingException {
-    initBankData();
-
-
-    var res = bankList.getAccountsNumbers(client);
-//   var res = bankList.getTransactions(client);
-//   var res = bankList.getClientsMotherName(bank);
-//   var res = bankList.getOldestClients(bank);
-//   var res = bankList.getTotalMoney(client);
-//   var res = bankList.getTotalMoney(bank);
-//   var red = bankList.getSortedRichestClients(bank);
-//   var res = bankList.getFathersFromYoungestClients(bank);
-//   var res = bankList.getReportString(bank);
-//   var res = bankList.getAgencies(bank);
-//   var res = bankList.getYoungestClientsFathersAndSendEmails(bank);
-//   var res = bankList.isClientSpentMoreThan(client, 100D);
-//   var res = bankList.isClientWithAllAccountsActive(client);
-//   var res = bankList.isClientWithAllAccountsInactive(client);
-//   var res = bankList.clientIncomingTransactionsCount(client);
-//   var res = bankList.getClientsWithAllAccountsAtiveAndSpentMoreThan(bank, 100D);
-
-    System.out.println(res);
-    System.out.println(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(bank));
-  }
-
-
-
-  private static void initBankData() {
-    mapper.registerModule(new Jdk8Module());
-
-    bank = new Bank("Santander");
-
-    Person mother1 = new Person("Maria", 60, "maria@email.com", null);
-    Person mother2 = new Person("Gertrudes", 80, "gertrudes@email.com", null);
-
-    Person father1 = new Person("José", 60, "jose@email.com", null);
-
-    Person person1 = new Person("João", 35, "joao@email.com", mother1, father1);
-    Person person2 = new Person("Carla", 30, "carla@email.com", mother1);
-
-    Client client1 = new Client(person1);
-    Client client2 = new Client(person2);
-
-    Account account1 = new Account("acc-123", "122", client1, 200D, bank);
-    Account account2 = new Account("acc-1234", "122", client1, 2000D, bank);
-    Account account3 = new Account("acc-12345", "122", client2, 10D, bank);
-
-    account1.transfer(account2, 10D);
-    account1.transfer(account2, 20D);
-
-    account2.transfer(account3, 10D);
-
-    account3.transfer(account2, 5D);
-
-    client = client1;
-  }
-
-}
----
-
-
-public class MainNumbers {
-  private static final NumberList numberList = new NumberListImperativeImpl();
-
-  public static void main(String[] args) throws JsonProcessingException {
-    // NumberList numberList = new NumberListStreamApiImpl();
-
-    // Declaração da lista
-    var numbers = new ArrayList<>(List.of(1, 2, 3, 4, 5, 0, 6, 7, 8, 9, 10));
-
-    var res = numberList.mapToDoubledNumbers(numbers);
-//    var res = numberList.flatMapNumbers(List.of(numbers, numbers));
-//    var res = numberList.getSortedNumbers(numbers);
-//    var res = numberList.getEvenNumbers(numbers);
-//    var res = numberList.getOddNumbers(numbers);
-//    var res = numberList.getSumList(numbers);
-//    var res = numberList.getFilteredNumbersAndLog(numbers);
-//    var res = numberList.getDotteredString(numbers);
-//    var res = numberList.isListWithNegativeNumber(numbers);
-//    var res = numberList.isListWithAllNumbersEven(numbers);
-//    var res = numberList.isListWithNegativeNumberUsingNoneMatch(numbers);
-//    var res = numberList.getEvenNumbersQuantity(numbers);
-//    var res = numberList.getFirstValueEqualToFiveOrReturnDefaultValue(numbers, 100);
-
-    System.out.println(res);
-  }
-
-
-}
-
----
-
-
-public class MainPlaces {
-  private static final PlaceListImpl placeList = new PlaceListImpl();
-
-  public static List<City> cities = new ArrayList<>();
-  public static List<State> states = new ArrayList<>();
-  public static Country country;
-  public static City city;
-  public static State state;
-  public static void main(String[] args) throws JsonProcessingException {
-    initiPlacesData();
-
-    var res = placeList.getStatesNames(country);
-//    var res = placeList.getCitiesNames(country);
-//    var res = placeList.getAlphabeticalCities(cities);
-//    var res = placeList.getCitiesWithMoreThanOneMillionPeople(cities);
-//    var res = placeList.getStatePopulation(state);
-//    var res = placeList.getCountryPopulation(country);
-//    var red7 = placeList.isStateSuperPopulated(state);
-//    var res = placeList.isStateStupidlyPopulated(state);
-//    var res = placeList.isStateSubPopulated(state);
-//    var res = placeList.getStateSuperPopulatedCitiesQuantity(state);
-//    var res = placeList.findCity(country, "São Paulo");
-
-    System.out.println(res);
-  }
-
-  public static void initiPlacesData() {
-    Country brazil = new Country("Brasil");
-    country = brazil;
-
-    State sp = new State("São Paulo", "SP", brazil);
-    State rj = new State("Rio de Janeiro", "RJ", brazil);
-    State ro = new State("Rondônia", "RO", brazil);
-    states.addAll(List.of(sp, rj, ro));
-    state = sp;
-
-    City saoPaulo = new City("São Paulo", sp, 12000000);
-    City campinas = new City("Campinas", sp, 2000000);
-    City saoJose = new City("São José dos Campos", sp, 900000);
-
-    City rioDeJaneiro = new City("Rio de Janeiro", rj, 6000000);
-    City niteroi = new City("Niterói", rj, 500000);
-
-    City portoVelho = new City("Porto Velho", ro, 400000);
-
-    city = saoPaulo;
-
-    cities.addAll(List.of(saoPaulo, campinas, saoJose, rioDeJaneiro, niteroi, portoVelho));
-  }
-
-}
-
-The method toList() is undefined for the type Collector
-
-
-
 package com.santader.example.impl;
 
-import com.santader.example.NumberList;
+import com.santader.example.PlaceList;
+import com.santader.place.City;
+import com.santader.place.Country;
+import com.santader.place.State;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
-public class NumberListStreamApiImpl implements NumberList {
-
+public class PlaceListImpl implements PlaceList {
 
   /**
-   * @param numbers Lista de números
-   * @return Uma lista com todos os números multiplicados por 2
+   * @param country Um país qualquer
+   * @return Uma lista com os nomes dos estados do país
    */
   @Override
-  public List<Integer> mapToDoubledNumbers(List<Integer> numbers) {
+  public List<String> getStatesNames(Country country) {
     return null;
   }
 
   /**
-   * @param numbers Lista de números
-   * @return Uma lista com todos os números de todas as listas
+   * @param country Um país qualquer
+   * @return uma lista com os nomes das cidades de um país
    */
   @Override
-  public List<Integer> flatMapNumbers(List<List<Integer>> numbers) {
+  public List<String> getCitiesNames(Country country) {
     return null;
   }
 
   /**
-   * @param numbers Lista de números
-   * @return A mesma lista, porém com os valores ordenados
+   * @param cities Uma lista de Cidades
+   * @return Uma lista com as cidades ordenadas alfabeticamente
    */
   @Override
-  public List<Integer> getSortedNumbers(List<Integer> numbers) {
+  public List<City> getAlphabeticalCities(List<City> cities) {
     return null;
   }
 
   /**
-   * @param numbers Lista de números
-   * @return Os números pares da lista
+   * @param cities Uma lista de Cidades
+   * @return Uma lista com as cidades com mais de um milhão de habitantes
    */
   @Override
-  public List<Integer> getEvenNumbers(List<Integer> numbers) {
+  public List<City> getCitiesWithMoreThanOneMillionPeople(List<City> cities) {
     return null;
   }
 
   /**
-   * @param numbers Lista de números
-   * @return Os números ímpares da lista
+   * @param state Um estado qualquer
+   * @return A população deste estado
    */
   @Override
-  public List<Integer> getOddNumbers(List<Integer> numbers) {
+  public Integer getStatePopulation(State state) {
     return null;
   }
 
   /**
-   * @param numbers Lista de números
-   * @return A soma de todos os números da lista
+   * @param country Um país qualquer
+   * @return A população do país
    */
   @Override
-  public Integer getSumList(List<Integer> numbers) {
+  public Integer getCountryPopulation(Country country) {
     return null;
   }
 
   /**
-   * @param numbers Lista de números
-   * @return Os números que são maiores que 5, multiplicados por 2,
-   * logar os números que sao maiores que 5 e logar o dobro desse mesmo número também
+   * @param state Um estado qualquer
+   * @return Se o estado possuir uma cidade com mais de 1 milhão de habitantes
    */
   @Override
-  public List<Integer> getFilteredNumbersAndLog(List<Integer> numbers) {
-    return null;
-  }
-
-  /**
-   * @param numbers Lista de números
-   * @return String com n linhas e cada linha com x pontos ("."),
-   * onde n é a quantidade de elementos do array e x o número na determinada posição
-   */
-  @Override
-  public String getDotteredString(List<Integer> numbers) {
-    return null;
-  }
-
-  /**
-   * @param numbers Lista de números
-   * @return Se a lista possui todos os números pares
-   */
-  @Override
-  public boolean isListWithAllNumbersEven(List<Integer> numbers) {
+  public boolean isStateSuperPopulated(State state) {
     return false;
   }
 
   /**
-   * @param numbers Lista de números
-   * @return Se a lista possui números negativos (usando noneMatch)
+   * @param state Um estado qualquer
+   * @return Se o estado possuir todas as cidades com mais de 1 milhão de habitantes
    */
   @Override
-  public boolean isListWithNegativeNumberUsingNoneMatch(List<Integer> numbers) {
+  public boolean isStateStupidlyPopulated(State state) {
     return false;
   }
 
   /**
-   * @param numbers Lista de números
-   * @return a quantidade de números ímpares da lista
+   * @param state Um estado qualquer
+   * @return Se o estado não possuir cidades com mais de 1 milhão de habitantes
    */
   @Override
-  public long getEvenNumbersQuantity(List<Integer> numbers) {
+  public boolean isStateSubPopulated(State state) {
+    return false;
+  }
+
+  /**
+   * @param state Um estado qualquer
+   * @return Quantidade de cidades com população maior que 1 milhão de um estado
+   */
+  @Override
+  public long getStateSuperPopulatedCitiesQuantity(State state) {
     return 0;
   }
 
   /**
-   * @param numbers      Lista de números
-   * @param defaultValue Valor padrão a ser retornado caso a lista não tenha o número 5 nela
-   * @return Caso a lista tenha o número 5, retorna 5, senão,  defaultValue
+   * @param country  Um país qualquer
+   * @param cityName O nome da cidade a ser buscada
+   * @return A cidade que possua o nome igual cityName
    */
   @Override
-  public Integer getFirstValueEqualToFiveOrReturnDefaultValue(List<Integer> numbers, Integer defaultValue) {
+  public Optional<City> findCity(Country country, String cityName) {
+    return Optional.empty();
+  }
+}
+package com.santader.example.impl;
+
+import com.santader.example.PlaceList;
+import com.santader.place.City;
+import com.santader.place.Country;
+import com.santader.place.State;
+
+import java.util.List;
+import java.util.Optional;
+
+public class PlaceListImpl implements PlaceList {
+
+  /**
+   * @param country Um país qualquer
+   * @return Uma lista com os nomes dos estados do país
+   */
+  @Override
+  public List<String> getStatesNames(Country country) {
     return null;
   }
 
   /**
-   * @param numbers Lista de números
-   * @return Se a lista um número negativo
+   * @param country Um país qualquer
+   * @return uma lista com os nomes das cidades de um país
    */
   @Override
-  public boolean isListWithNegativeNumber(List<Integer> numbers) {
+  public List<String> getCitiesNames(Country country) {
+    return null;
+  }
+
+  /**
+   * @param cities Uma lista de Cidades
+   * @return Uma lista com as cidades ordenadas alfabeticamente
+   */
+  @Override
+  public List<City> getAlphabeticalCities(List<City> cities) {
+    return null;
+  }
+
+  /**
+   * @param cities Uma lista de Cidades
+   * @return Uma lista com as cidades com mais de um milhão de habitantes
+   */
+  @Override
+  public List<City> getCitiesWithMoreThanOneMillionPeople(List<City> cities) {
+    return null;
+  }
+
+  /**
+   * @param state Um estado qualquer
+   * @return A população deste estado
+   */
+  @Override
+  public Integer getStatePopulation(State state) {
+    return null;
+  }
+
+  /**
+   * @param country Um país qualquer
+   * @return A população do país
+   */
+  @Override
+  public Integer getCountryPopulation(Country country) {
+    return null;
+  }
+
+  /**
+   * @param state Um estado qualquer
+   * @return Se o estado possuir uma cidade com mais de 1 milhão de habitantes
+   */
+  @Override
+  public boolean isStateSuperPopulated(State state) {
     return false;
+  }
+
+  /**
+   * @param state Um estado qualquer
+   * @return Se o estado possuir todas as cidades com mais de 1 milhão de habitantes
+   */
+  @Override
+  public boolean isStateStupidlyPopulated(State state) {
+    return false;
+  }
+
+  /**
+   * @param state Um estado qualquer
+   * @return Se o estado não possuir cidades com mais de 1 milhão de habitantes
+   */
+  @Override
+  public boolean isStateSubPopulated(State state) {
+    return false;
+  }
+
+  /**
+   * @param state Um estado qualquer
+   * @return Quantidade de cidades com população maior que 1 milhão de um estado
+   */
+  @Override
+  public long getStateSuperPopulatedCitiesQuantity(State state) {
+    return 0;
+  }
+
+  /**
+   * @param country  Um país qualquer
+   * @param cityName O nome da cidade a ser buscada
+   * @return A cidade que possua o nome igual cityName
+   */
+  @Override
+  public Optional<City> findCity(Country country, String cityName) {
+    return Optional.empty();
   }
 }
