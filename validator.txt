@@ -1,84 +1,21 @@
-package com.santader;
+package com.santader.bank;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.santader.bank.Account;
-import com.santader.bank.Bank;
-import com.santader.bank.Client;
-import com.santader.bank.Person;
-import com.santader.example.BankList;
-import com.santader.example.impl.BankListImpl;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.*;
 
-public class MainBank {
-  private static final ObjectMapper mapper = new ObjectMapper();
-  private static final BankList bankList = new BankListImpl();
+public class Bank {
+  private final String name;
+  private final List<Account> accounts = new ArrayList<>();
 
-  public static Bank bank;
-  public static Client client;
-
-  public static void main(String[] args) throws JsonProcessingException {
-    initBankData();
-
-
-    var res = bankList.getAccountsNumbers(client);
-//   var res = bankList.getTransactions(client);
-//   var res = bankList.getClientsMotherName(bank);
-//   var res = bankList.getOldestClients(bank);
-//   var res = bankList.getTotalMoney(client);
-//   var res = bankList.getTotalMoney(bank);
-//   var red = bankList.getSortedRichestClients(bank);
-//   var res = bankList.getFathersFromYoungestClients(bank);
-//   var res = bankList.getReportString(bank);
-//   var res = bankList.getAgencies(bank);
-//   var res = bankList.getYoungestClientsFathersAndSendEmails(bank);
-//   var res = bankList.isClientSpentMoreThan(client, 100D);
-//   var res = bankList.isClientWithAllAccountsActive(client);
-//   var res = bankList.isClientWithAllAccountsInactive(client);
-//   var res = bankList.clientIncomingTransactionsCount(client);
-//   var res = bankList.getClientsWithAllAccountsAtiveAndSpentMoreThan(bank, 100D);
-    List<String> teste = bankList.getAccountsNumbers(client);
-    System.out.println(res);
-    System.out.println(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(bank));
-    System.out.println("TESTE: " + teste);
+  public Bank(String name) {
+    this.name = name;
   }
 
-  public List<String> getAccountsNumbers(Client client){
-    return client.getAccounts().stream()
-      .map(Account::getAccountNumber)
-      .collect(Collectors.toList());
+  public List<Account> getAccounts() {
+    return accounts;
   }
 
-  private static void initBankData() {
-    mapper.registerModule(new Jdk8Module());
-
-    bank = new Bank("Santander");
-
-    Person mother1 = new Person("Maria", 60, "maria@email.com", null);
-    Person mother2 = new Person("Gertrudes", 80, "gertrudes@email.com", null);
-
-    Person father1 = new Person("José", 60, "jose@email.com", null);
-
-    Person person1 = new Person("João", 35, "joao@email.com", mother1, father1);
-    Person person2 = new Person("Carla", 30, "carla@email.com", mother1);
-
-    Client client1 = new Client(person1);
-    Client client2 = new Client(person2);
-
-    Account account1 = new Account("acc-123", "122", client1, 200D, bank);
-    Account account2 = new Account("acc-1234", "122", client1, 2000D, bank);
-    Account account3 = new Account("acc-12345", "122", client2, 10D, bank);
-
-    account1.transfer(account2, 10D);
-    account1.transfer(account2, 20D);
-
-    account2.transfer(account3, 10D);
-
-    account3.transfer(account2, 5D);
-
-    client = client1;
+  public String getName() {
+    return name;
   }
-
 }
