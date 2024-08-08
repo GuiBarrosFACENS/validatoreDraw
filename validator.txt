@@ -110,3 +110,160 @@ public class Person {
         ", father=" + getFather().map(v -> v.getName()).orElse("") +
         "}";
   }
+
+
+
+-----
+
+
+public class MainBank {
+  private static final ObjectMapper mapper = new ObjectMapper();
+  private static final BankList bankList = new BankListImpl();
+
+  public static Bank bank;
+  public static Client client;
+
+  public static void main(String[] args) throws JsonProcessingException {
+    initBankData();
+
+
+    var res = bankList.getAccountsNumbers(client);
+//   var res = bankList.getTransactions(client);
+//   var res = bankList.getClientsMotherName(bank);
+//   var res = bankList.getOldestClients(bank);
+//   var res = bankList.getTotalMoney(client);
+//   var res = bankList.getTotalMoney(bank);
+//   var red = bankList.getSortedRichestClients(bank);
+//   var res = bankList.getFathersFromYoungestClients(bank);
+//   var res = bankList.getReportString(bank);
+//   var res = bankList.getAgencies(bank);
+//   var res = bankList.getYoungestClientsFathersAndSendEmails(bank);
+//   var res = bankList.isClientSpentMoreThan(client, 100D);
+//   var res = bankList.isClientWithAllAccountsActive(client);
+//   var res = bankList.isClientWithAllAccountsInactive(client);
+//   var res = bankList.clientIncomingTransactionsCount(client);
+//   var res = bankList.getClientsWithAllAccountsAtiveAndSpentMoreThan(bank, 100D);
+
+    System.out.println(res);
+    System.out.println(mapper.writerWithDefaultPrettyPrinter().writeValueAsString(bank));
+  }
+
+
+
+  private static void initBankData() {
+    mapper.registerModule(new Jdk8Module());
+
+    bank = new Bank("Santander");
+
+    Person mother1 = new Person("Maria", 60, "maria@email.com", null);
+    Person mother2 = new Person("Gertrudes", 80, "gertrudes@email.com", null);
+
+    Person father1 = new Person("José", 60, "jose@email.com", null);
+
+    Person person1 = new Person("João", 35, "joao@email.com", mother1, father1);
+    Person person2 = new Person("Carla", 30, "carla@email.com", mother1);
+
+    Client client1 = new Client(person1);
+    Client client2 = new Client(person2);
+
+    Account account1 = new Account("acc-123", "122", client1, 200D, bank);
+    Account account2 = new Account("acc-1234", "122", client1, 2000D, bank);
+    Account account3 = new Account("acc-12345", "122", client2, 10D, bank);
+
+    account1.transfer(account2, 10D);
+    account1.transfer(account2, 20D);
+
+    account2.transfer(account3, 10D);
+
+    account3.transfer(account2, 5D);
+
+    client = client1;
+  }
+
+}
+---
+
+
+public class MainNumbers {
+  private static final NumberList numberList = new NumberListImperativeImpl();
+
+  public static void main(String[] args) throws JsonProcessingException {
+    // NumberList numberList = new NumberListStreamApiImpl();
+
+    // Declaração da lista
+    var numbers = new ArrayList<>(List.of(1, 2, 3, 4, 5, 0, 6, 7, 8, 9, 10));
+
+    var res = numberList.mapToDoubledNumbers(numbers);
+//    var res = numberList.flatMapNumbers(List.of(numbers, numbers));
+//    var res = numberList.getSortedNumbers(numbers);
+//    var res = numberList.getEvenNumbers(numbers);
+//    var res = numberList.getOddNumbers(numbers);
+//    var res = numberList.getSumList(numbers);
+//    var res = numberList.getFilteredNumbersAndLog(numbers);
+//    var res = numberList.getDotteredString(numbers);
+//    var res = numberList.isListWithNegativeNumber(numbers);
+//    var res = numberList.isListWithAllNumbersEven(numbers);
+//    var res = numberList.isListWithNegativeNumberUsingNoneMatch(numbers);
+//    var res = numberList.getEvenNumbersQuantity(numbers);
+//    var res = numberList.getFirstValueEqualToFiveOrReturnDefaultValue(numbers, 100);
+
+    System.out.println(res);
+  }
+
+
+}
+
+---
+
+
+public class MainPlaces {
+  private static final PlaceListImpl placeList = new PlaceListImpl();
+
+  public static List<City> cities = new ArrayList<>();
+  public static List<State> states = new ArrayList<>();
+  public static Country country;
+  public static City city;
+  public static State state;
+  public static void main(String[] args) throws JsonProcessingException {
+    initiPlacesData();
+
+    var res = placeList.getStatesNames(country);
+//    var res = placeList.getCitiesNames(country);
+//    var res = placeList.getAlphabeticalCities(cities);
+//    var res = placeList.getCitiesWithMoreThanOneMillionPeople(cities);
+//    var res = placeList.getStatePopulation(state);
+//    var res = placeList.getCountryPopulation(country);
+//    var red7 = placeList.isStateSuperPopulated(state);
+//    var res = placeList.isStateStupidlyPopulated(state);
+//    var res = placeList.isStateSubPopulated(state);
+//    var res = placeList.getStateSuperPopulatedCitiesQuantity(state);
+//    var res = placeList.findCity(country, "São Paulo");
+
+    System.out.println(res);
+  }
+
+  public static void initiPlacesData() {
+    Country brazil = new Country("Brasil");
+    country = brazil;
+
+    State sp = new State("São Paulo", "SP", brazil);
+    State rj = new State("Rio de Janeiro", "RJ", brazil);
+    State ro = new State("Rondônia", "RO", brazil);
+    states.addAll(List.of(sp, rj, ro));
+    state = sp;
+
+    City saoPaulo = new City("São Paulo", sp, 12000000);
+    City campinas = new City("Campinas", sp, 2000000);
+    City saoJose = new City("São José dos Campos", sp, 900000);
+
+    City rioDeJaneiro = new City("Rio de Janeiro", rj, 6000000);
+    City niteroi = new City("Niterói", rj, 500000);
+
+    City portoVelho = new City("Porto Velho", ro, 400000);
+
+    city = saoPaulo;
+
+    cities.addAll(List.of(saoPaulo, campinas, saoJose, rioDeJaneiro, niteroi, portoVelho));
+  }
+
+}
