@@ -1,5 +1,45 @@
-O MirrorMaker 2.0 não copia todo o cluster, mas sim replica tópicos específicos de um cluster de origem para um cluster de destino. Cada tópico consiste de mensagens distribuídas em partições, e o MirrorMaker 2.0 gerencia a replicação dessas mensagens conforme configurado.
+{
+    "timestamp": "2024-08-28T18:06:00.722252Z",
+    "httpStatus": "INTERNAL_SERVER_ERROR",
+    "errorCode": 9999,
+    "title": "UNKNOWN_ERROR",
+    "message": "An unknown error has occurred",
+    "details": "No qualifying bean of type 'jakarta.validation.Validator' available: more than one 'primary' bean found among candidates: [defaultValidator, getValidator]",
+    "traceId": "284dee77-3e88-472f-b603-9e9b6edaa491"
+}
 
-Detalhes da Replicação
-Tópicos Específicos: Você configura o MirrorMaker 2.0 para replicar tópicos específicos. Por exemplo, você pode replicar o tópico my-topic do Cluster A para o Cluster B.
-Mensagens e Partições: Dentro dos tópicos especificados, o MirrorMaker 2.0 copia as mensagens de todas as partições associadas.
+-
+
+
+15:01:34.454 [0-exec-8] ERROR c.s.a.e.h.ArsenalDefaultExceptionHandler 4dd6bb9f-135f-4ce7-8a04-92cc4cfe19af :  :  : No qualifying bean of type 'jakarta.validation.Validator' available: more than one 'primary' bean found among candidates: [defaultValidator, getValidator]
+org.springframework.beans.factory.NoUniqueBeanDefinitionException: No qualifying bean of type 'jakarta.validation.Validator' available: more than one 'primary' bean found among candidates: [defaultValidator, getValidator]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.determinePrimaryCandidate(DefaultListableBeanFactory.java:1755)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.determineAutowireCandidate(DefaultListableBeanFactory.java:1715)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1416)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory$DependencyObjectProvider.getObject(DefaultListableBeanFactory.java:2070)
+	at org.springframework.validation.beanvalidation.MethodValidationAdapter.invokeValidatorForArguments(MethodValidationAdapter.java:258)
+	at org.springframework.validation.beanvalidation.MethodValidationInterceptor.invoke(MethodValidationInterceptor.java:168)
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+	at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:765)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:717)
+	at com.santander.mpa.api.WebhookApiController$$SpringCGLIB$$0.invoicePaymentsPost(<generated>)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:255)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:188)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:118)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:925)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:830)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1089)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:979)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1014)
+	at org.springframework.web.servlet.FrameworkServlet.doPost(FrameworkServlet.java:914)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:547)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885)
+	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:614)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:205)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149)
+	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51)
