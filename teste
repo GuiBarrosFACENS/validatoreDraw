@@ -1,84 +1,93 @@
-{
-    "timestamp": "2024-08-28T18:06:00.722252Z",
-    "httpStatus": "INTERNAL_SERVER_ERROR",
-    "errorCode": 9999,
-    "title": "UNKNOWN_ERROR",
-    "message": "An unknown error has occurred",
-    "details": "No qualifying bean of type 'jakarta.validation.Validator' available: more than one 'primary' bean found among candidates: [defaultValidator, getValidator]",
-    "traceId": "284dee77-3e88-472f-b603-9e9b6edaa491"
+@ExtendWith(MockitoExtension.class)
+class KafkaProviderTest {
+
+    @Mock
+    private InvoicePaymentYkProperties invoicePaymentYkProperties;
+    @Mock
+    private KafkaTemplate<String, String> kafkaTemplate;
+    @Mock
+    private InvoicePaymentPlardMapper invoicePaymentPlardMapper;
+    @Mock
+    private ObjectMapper objectMapper;
+    @Mock
+    private ExtractorAdvice extractor;
+    @Mock
+    private FibonacciBackoffPolicyRetry fibonacciBackoffPolicyRetry;
+
+    @InjectMocks
+    private KafkaProvider kafkaProvider;
+
+    private BilledInvoicePlard billedInvoicePlard;
+    private BilledInvoicePlardDTO billedInvoicePlardDTO;
+
+    @BeforeEach
+    void setUp() {
+        billedInvoicePlard = new BilledInvoicePlard();
+        billedInvoicePlardDTO = BilledInvoicePlardDTO.builder()
+                .invoiceInfo(InvoiceInfoDTO.builder()
+                        .paymentType("paymentType")
+                        .externalReference("externalReference")
+                        .build())
+                .build();
+
+        // Setup common stubbing
+        lenient().when(invoicePaymentYkProperties.getPlardTopic()).thenReturn("invoice-payment-plard");
+        lenient().when(invoicePaymentPlardMapper.toDto(billedInvoicePlard)).thenReturn(billedInvoicePlardDTO);
+        lenient().when(objectMapper.writeValueAsString(billedInvoicePlardDTO)).thenReturn("messageBody");
+    }
+
+    @Test
+    void sendMessageSendMessageToKafka() throws Exception {
+        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
+        when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(future);
+
+        kafkaProvider.sendMessage(billedInvoicePlard);
+
+        ArgumentCaptor<ProducerRecord<String, String>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
+        verify(kafkaTemplate, atLeastOnce()).send(captor.capture());
+        assertEquals(1, captor.getAllValues().size());
+        verify(extractor, never()).execute(anyString());
+    }
+
+    @Test
+    void sendMessageThrowsException() {
+        assertThrows(NullPointerException.class, () -> kafkaProvider.sendMessage(null));
+    }
+
+    @Test
+    void sendMessageThrowsErrorSendTopicKafkaException() throws Exception {
+        when(objectMapper.writeValueAsString(billedInvoicePlardDTO))
+                .thenThrow(new JsonProcessingException("") {
+                });
+
+        assertThrows(
+                ErrorSendTopicKafkaException.class,
+                () -> kafkaProvider.sendMessage(billedInvoicePlard));
+    }
+
+    @Test
+    void sendMessageWithRetrySuccess() throws Exception {
+        // Only necessary mocks
+        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
+        when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(future);
+
+        kafkaProvider.sendMessageWithRetry(new ProducerRecord<>("invoice-payment-plard", "messageBody"));
+
+        ArgumentCaptor<ProducerRecord<String, String>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
+        verify(kafkaTemplate, atLeastOnce()).send(captor.capture());
+
+        assertEquals(1, captor.getAllValues().size());
+        verify(extractor, never()).execute(anyString());
+    }
+
+    @Test
+    void sendMessageWithRetryFailure() throws Exception {
+        ProducerRecord<String, String> producerRecord = new ProducerRecord<>("invoice-payment-plard", "messageBody");
+        doThrow(new RuntimeException("Kafka send failed")).when(kafkaTemplate).send(any(ProducerRecord.class));
+
+        assertThrows(RuntimeException.class, () -> kafkaProvider.sendMessageWithRetry(producerRecord));
+
+        verify(kafkaTemplate, times(1)).send(producerRecord);
+        verify(extractor, times(1)).execute("telemetria_log_category");
+    }
 }
-
--
-
-
-15:01:34.454 [0-exec-8] ERROR c.s.a.e.h.ArsenalDefaultExceptionHandler 4dd6bb9f-135f-4ce7-8a04-92cc4cfe19af :  :  : No qualifying bean of type 'jakarta.validation.Validator' available: more than one 'primary' bean found among candidates: [defaultValidator, getValidator]
-org.springframework.beans.factory.NoUniqueBeanDefinitionException: No qualifying bean of type 'jakarta.validation.Validator' available: more than one 'primary' bean found among candidates: [defaultValidator, getValidator]
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.determinePrimaryCandidate(DefaultListableBeanFactory.java:1755)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.determineAutowireCandidate(DefaultListableBeanFactory.java:1715)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1416)
-	at org.springframework.beans.factory.support.DefaultListableBeanFactory$DependencyObjectProvider.getObject(DefaultListableBeanFactory.java:2070)
-	at org.springframework.validation.beanvalidation.MethodValidationAdapter.invokeValidatorForArguments(MethodValidationAdapter.java:258)
-	at org.springframework.validation.beanvalidation.MethodValidationInterceptor.invoke(MethodValidationInterceptor.java:168)
-	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
-	at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:765)
-	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:717)
-	at com.santander.mpa.api.WebhookApiController$$SpringCGLIB$$0.invoicePaymentsPost(<generated>)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
-	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
-	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:568)
-	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:255)
-	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:188)
-	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:118)
-	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:925)
-	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:830)
-	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
-	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1089)
-	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:979)
-	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1014)
-	at org.springframework.web.servlet.FrameworkServlet.doPost(FrameworkServlet.java:914)
-	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:547)
-	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:885)
-	at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:614)
-	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:205)
-	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:149)
-	at org.apache.tomcat.websocket.server.WsFilter.doFilter(WsFilter.java:51)
-
-
-
-<plugin>
-             <groupId>org.openapitools</groupId>
-             <artifactId>openapi-generator-maven-plugin</artifactId>
-             <executions>
-                <execution>
-                   <goals>
-                      <goal>generate</goal>
-                   </goals>
-                   <configuration>
-                      <skipValidateSpec>true</skipValidateSpec>
-                      <inputSpec>${project.basedir}/src/main/resources/openapi.yaml</inputSpec>
-                      <generatorName>spring</generatorName>
-                      <apiPackage>com.santander.mpa.api</apiPackage>
-                      <modelPackage>com.santander.mpa.model</modelPackage>
-                      <supportingFilesToGenerate>ApiUtil.java</supportingFilesToGenerate>
-                      <templateDirectory>${project.basedir}/src/main/resources</templateDirectory>
-                      <configOptions>
-                         <useSpringBoot3>true</useSpringBoot3>
-                         <delegatePattern>true</delegatePattern>
-                         <openApiNullable>false</openApiNullable>
-                         <dateLibrary>java8</dateLibrary>
-                         <generateBuilders>true</generateBuilders>
-                         <booleanGetterPrefix>is</booleanGetterPrefix>
-                         <hideGenerationTimestamp>true</hideGenerationTimestamp>
-                         <useBeanValidation>false</useBeanValidation>
-                         <useTags>true</useTags>
-                         <useSwaggerAnnotations>false</useSwaggerAnnotations>
-<!--                         <async>true</async>-->
-                         <returnResponse>true</returnResponse>
-                         <additionalModelTypeAnnotations>@SuppressWarnings({"hiding", "static-method", "unused"})</additionalModelTypeAnnotations>
-                         <additionalModelTypeAnnotations>@lombok.Builder @lombok.NoArgsConstructor @lombok.AllArgsConstructor</additionalModelTypeAnnotations>
-                      </configOptions>
-                   </configuration>
-                </execution>
-             </executions>
-          </plugin>
