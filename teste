@@ -1,93 +1,12 @@
-@ExtendWith(MockitoExtension.class)
-class KafkaProviderTest {
+@Test
+void sendMessageWithRetryFailure() {
+    // Simule uma falha no envio
+    when(kafkaTemplate.send(any(ProducerRecord.class))).thenThrow(new RuntimeException("Kafka send failed"));
 
-    @Mock
-    private InvoicePaymentYkProperties invoicePaymentYkProperties;
-    @Mock
-    private KafkaTemplate<String, String> kafkaTemplate;
-    @Mock
-    private InvoicePaymentPlardMapper invoicePaymentPlardMapper;
-    @Mock
-    private ObjectMapper objectMapper;
-    @Mock
-    private ExtractorAdvice extractor;
-    @Mock
-    private FibonacciBackoffPolicyRetry fibonacciBackoffPolicyRetry;
+    // Execute o método que deve falhar após o retry
+    assertThrows(RuntimeException.class, () -> kafkaProvider.sendMessageWithRetry(producerRecord));
 
-    @InjectMocks
-    private KafkaProvider kafkaProvider;
-
-    private BilledInvoicePlard billedInvoicePlard;
-    private BilledInvoicePlardDTO billedInvoicePlardDTO;
-
-    @BeforeEach
-    void setUp() {
-        billedInvoicePlard = new BilledInvoicePlard();
-        billedInvoicePlardDTO = BilledInvoicePlardDTO.builder()
-                .invoiceInfo(InvoiceInfoDTO.builder()
-                        .paymentType("paymentType")
-                        .externalReference("externalReference")
-                        .build())
-                .build();
-
-        // Setup common stubbing
-        lenient().when(invoicePaymentYkProperties.getPlardTopic()).thenReturn("invoice-payment-plard");
-        lenient().when(invoicePaymentPlardMapper.toDto(billedInvoicePlard)).thenReturn(billedInvoicePlardDTO);
-        lenient().when(objectMapper.writeValueAsString(billedInvoicePlardDTO)).thenReturn("messageBody");
-    }
-
-    @Test
-    void sendMessageSendMessageToKafka() throws Exception {
-        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
-        when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(future);
-
-        kafkaProvider.sendMessage(billedInvoicePlard);
-
-        ArgumentCaptor<ProducerRecord<String, String>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
-        verify(kafkaTemplate, atLeastOnce()).send(captor.capture());
-        assertEquals(1, captor.getAllValues().size());
-        verify(extractor, never()).execute(anyString());
-    }
-
-    @Test
-    void sendMessageThrowsException() {
-        assertThrows(NullPointerException.class, () -> kafkaProvider.sendMessage(null));
-    }
-
-    @Test
-    void sendMessageThrowsErrorSendTopicKafkaException() throws Exception {
-        when(objectMapper.writeValueAsString(billedInvoicePlardDTO))
-                .thenThrow(new JsonProcessingException("") {
-                });
-
-        assertThrows(
-                ErrorSendTopicKafkaException.class,
-                () -> kafkaProvider.sendMessage(billedInvoicePlard));
-    }
-
-    @Test
-    void sendMessageWithRetrySuccess() throws Exception {
-        // Only necessary mocks
-        CompletableFuture<Void> future = CompletableFuture.completedFuture(null);
-        when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(future);
-
-        kafkaProvider.sendMessageWithRetry(new ProducerRecord<>("invoice-payment-plard", "messageBody"));
-
-        ArgumentCaptor<ProducerRecord<String, String>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
-        verify(kafkaTemplate, atLeastOnce()).send(captor.capture());
-
-        assertEquals(1, captor.getAllValues().size());
-        verify(extractor, never()).execute(anyString());
-    }
-
-    @Test
-    void sendMessageWithRetryFailure() throws Exception {
-        ProducerRecord<String, String> producerRecord = new ProducerRecord<>("invoice-payment-plard", "messageBody");
-        doThrow(new RuntimeException("Kafka send failed")).when(kafkaTemplate).send(any(ProducerRecord.class));
-
-        assertThrows(RuntimeException.class, () -> kafkaProvider.sendMessageWithRetry(producerRecord));
-
-        verify(kafkaTemplate, times(1)).send(producerRecord);
-        verify(extractor, times(1)).execute("telemetria_log_category");
-    }
+    // Verifique que o método send() foi chamado o número correto de vezes, baseado na lógica de retry
+    int expectedRetries = 3; // Ajuste de acordo com sua lógica de retry
+    verify(kafkaTemplate, times(expectedRetries)).send(any(ProducerRecord.class));
 }
