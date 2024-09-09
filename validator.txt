@@ -1,1 +1,2 @@
-.
+    when(kafkaTemplate.send(any(ProducerRecord.class)))
+        .thenReturn(CompletableFuture.completedFuture(null));
