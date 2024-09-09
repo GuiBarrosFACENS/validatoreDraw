@@ -1,12 +1,1 @@
-@Test
-void sendMessageWithRetryFailure() {
-    // Simule uma falha no envio
-    when(kafkaTemplate.send(any(ProducerRecord.class))).thenThrow(new RuntimeException("Kafka send failed"));
-
-    // Execute o método que deve falhar após o retry
-    assertThrows(RuntimeException.class, () -> kafkaProvider.sendMessageWithRetry(producerRecord));
-
-    // Verifique que o método send() foi chamado o número correto de vezes, baseado na lógica de retry
-    int expectedRetries = 3; // Ajuste de acordo com sua lógica de retry
-    verify(kafkaTemplate, times(expectedRetries)).send(any(ProducerRecord.class));
-}
+.
