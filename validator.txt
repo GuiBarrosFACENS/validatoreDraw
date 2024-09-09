@@ -1,2 +1,65 @@
-    when(kafkaTemplate.send(any(ProducerRecord.class)))
-        .thenReturn(CompletableFuture.completedFuture(null));
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.concurrent.CompletableFuture;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+
+@ExtendWith(MockitoExtension.class)
+@SpringBootTest
+class InvoicePaymentIntegrationTest {
+    private String urlWebhook = "/card_invoice_payment_notification/v1/invoice_payments";
+
+    @Autowired
+    private WebApplicationContext webApplicationContext;
+
+    private MockMvc mockMvc;
+
+    @MockBean
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    @Mock
+    private InvoicePaymentRequest invoicePaymentRequest;
+
+    @InjectMocks
+    private KafkaProvider kafkaProviderImpl;
+
+    @BeforeEach
+    public void setup() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+        invoicePaymentRequest = new InvoicePaymentRequest();
+    }
+
+    @Test
+    public void testInvoicePaymentWebhook() throws Exception {
+        // Mock the KafkaTemplate behavior
+        when(kafkaTemplate.send(anyString(), eq("key"), anyString()))
+                .thenReturn(CompletableFuture.completedFuture(new SendResult<>(null, null)));
+
+        String requestBody = new String(Files.readAllBytes(Paths.get("src/test/resources/json/billed-invoice-yk.json")));
+
+        mockMvc.perform(post(urlWebhook)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody))
+                .andExpect(status().isAccepted());
+    }
+}
