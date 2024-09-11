@@ -1,1 +1,142 @@
+ import static org.mockito.Mockito.*;
+ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+ import com.fasterxml.jackson.databind.ObjectMapper;
+ import com.santander.mpa.app.model.InvoiceResponse;
+ import com.santander.mpa.app.model.PaymentResponse;
+ import com.santander.mpa.app.service.BilletInvoiceService;
+ import com.santander.mpa.app.service.DoublePaymentValidationService;
+ import com.santander.mpa.domain.usecase.DoublePaymentValidationUseCase;
+ import com.santander.mpa.infra.mapper.InvoiceToEntityMapper;
+ import com.santander.mpa.infra.mapper.PaymentToEntityMapper;
+ import com.santander.mpa.infra.messageprovider.KafkaProviderImpl;
+ import com.santander.mpa.infra.repository.InvoiceRepository;
+ import com.santander.mpa.infra.repository.PaymentRepository;
+ import com.santander.mpa.infra.repository.model.InvoiceData;
+ import com.santander.mpa.infra.repository.model.PaymentData;
+ import com.santander.mpa.model.InvoicePaymentRequest;
+ import java.nio.file.Files;
+ import java.nio.file.Paths;
+ import java.time.OffsetDateTime;
+ import java.util.Optional;
+
+ import com.santander.mpa.model.InvoicePaymentResponse;
+ import org.apache.kafka.clients.producer.ProducerRecord;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.extension.ExtendWith;
+ import org.mockito.InjectMocks;
+ import org.mockito.Mock;
+ import org.mockito.Mockito;
+ import org.mockito.junit.jupiter.MockitoExtension;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+ import org.springframework.boot.test.context.SpringBootTest;
+ import org.springframework.boot.test.mock.mockito.MockBean;
+ import org.springframework.http.MediaType;
+ import org.springframework.kafka.core.KafkaTemplate;
+ import org.springframework.test.context.ActiveProfiles;
+ import org.springframework.test.web.servlet.MockMvc;
+ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+ import org.springframework.web.context.WebApplicationContext;
+
+ import javax.sql.DataSource;
+
+ @ExtendWith(MockitoExtension.class)
+ @SpringBootTest
+ @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
+ @ActiveProfiles("test")
+ class InvoicePaymentIntegrationTest {
+  private String urlWebhook = "/card_invoice_payment_notification/v1/invoice_payments";
+
+  @Mock private DoublePaymentValidationService doublePaymentValidationService;
+
+  @Autowired private BilletInvoiceService billetInvoiceService;
+
+  @Autowired private DataSource dataSource;
+
+  @Autowired private WebApplicationContext webApplicationContext;
+
+  @Autowired
+  private ObjectMapper objectMapper;
+
+  private MockMvc mockMvc;
+
+  @MockBean private KafkaTemplate<String, String> kafkaTemplate;
+
+  @MockBean private InvoiceToEntityMapper invoiceToEntityMapper;
+
+  @MockBean private PaymentToEntityMapper paymentToEntityMapper;
+
+  @Autowired
+  private InvoiceRepository invoiceRepository;
+
+  @Autowired
+  private PaymentRepository paymentRepository;
+
+  @Mock private InvoicePaymentRequest invoicePaymentRequest;
+
+  @InjectMocks private KafkaProviderImpl kafkaProviderImpl;
+
+  @BeforeEach
+  public void setup() {
+    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
+    invoicePaymentRequest = new InvoicePaymentRequest();
+  }
+
+  @Test
+  void testInvoicePaymentWebhook() throws Exception {
+    String requestBody =
+        new
+   String(Files.readAllBytes(Paths.get("src/test/resources/json/billed-invoice-yk.json")));
+   InvoicePaymentRequest invoicePaymentRequest = objectMapper.readValue(requestBody,InvoicePaymentRequest.class);
+
+   InvoiceResponse invoiceResponse = invoiceResponseMock();
+   PaymentResponse paymentResponse = paymentResponseMock();
+   InvoiceData invoiceData = invoiceDataMock();
+   PaymentData paymentData = paymentDataMock();
+
+   invoiceRepository.save(invoiceData);
+   paymentRepository.save(paymentData);
+
+//   when(invoiceRepository.findByIdentifier("000018WEBHOOK")).thenReturn(Optional.of(invoiceData));
+//   when(paymentRepository.findByPaymentId("123456")).thenReturn(Optional.of(paymentData));
+   when(doublePaymentValidationService.getByIndetifier(invoicePaymentRequest.getBankNumber() + invoicePaymentRequest.getClientNumber())).thenReturn(invoiceResponse);
+   when(doublePaymentValidationService.getPaymentByDate(invoiceResponse.getPaymentId())).thenReturn(paymentResponse);
+
+
+   doNothing().when(kafkaTemplate).send(anyString(), anyString());
+
+    mockMvc
+        .perform(
+            post("/card_invoice_payment_notification/v1/invoice_payments")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody))
+        .andExpect(status().isAccepted());
+
+    verify(kafkaTemplate, times(1)).send(Mockito.any(ProducerRecord.class));
+  }
+
+  private InvoiceResponse invoiceResponseMock() {
+   return InvoiceResponse.builder().identifier("0000000000018EXEMPLO WEBHOOK").paymentId("67890").status("OPEN").build();
+  }
+
+  private PaymentResponse paymentResponseMock() {
+   return PaymentResponse.builder()
+           .paymentId("67890")
+           .paymentDate(OffsetDateTime.parse("2021-01-01T00:00:00Z"))
+           .build();
+  }
+  private InvoiceData invoiceDataMock() {
+   return InvoiceData.builder().identifier("000018WEBHOOK").paymentId("654321").status("PAID").build();
+  }
+
+  private PaymentData paymentDataMock() {
+   return PaymentData.builder()
+           .paymentDate(OffsetDateTime.parse("2021-01-01T00:00:00Z"))
+           .paymentId("123456")
+           .build();
+  }
+ }
+ 
