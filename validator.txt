@@ -1,142 +1,113 @@
- import static org.mockito.Mockito.*;
- import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
- import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.santander.mpa.domain.enums.RecordTypeEnum;
+import com.santander.mpa.domain.enums.SegmentTypeEnum;
+import com.santander.mpa.domain.usecase.FileSegmentsBuilderUseCase;
+import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
- import com.fasterxml.jackson.databind.ObjectMapper;
- import com.santander.mpa.app.model.InvoiceResponse;
- import com.santander.mpa.app.model.PaymentResponse;
- import com.santander.mpa.app.service.BilletInvoiceService;
- import com.santander.mpa.app.service.DoublePaymentValidationService;
- import com.santander.mpa.domain.usecase.DoublePaymentValidationUseCase;
- import com.santander.mpa.infra.mapper.InvoiceToEntityMapper;
- import com.santander.mpa.infra.mapper.PaymentToEntityMapper;
- import com.santander.mpa.infra.messageprovider.KafkaProviderImpl;
- import com.santander.mpa.infra.repository.InvoiceRepository;
- import com.santander.mpa.infra.repository.PaymentRepository;
- import com.santander.mpa.infra.repository.model.InvoiceData;
- import com.santander.mpa.infra.repository.model.PaymentData;
- import com.santander.mpa.model.InvoicePaymentRequest;
- import java.nio.file.Files;
- import java.nio.file.Paths;
- import java.time.OffsetDateTime;
- import java.util.Optional;
+public class FileSegmentsBuilderUseCaseImpl implements FileSegmentsBuilderUseCase {
 
- import com.santander.mpa.model.InvoicePaymentResponse;
- import org.apache.kafka.clients.producer.ProducerRecord;
- import org.junit.jupiter.api.BeforeEach;
- import org.junit.jupiter.api.Test;
- import org.junit.jupiter.api.extension.ExtendWith;
- import org.mockito.InjectMocks;
- import org.mockito.Mock;
- import org.mockito.Mockito;
- import org.mockito.junit.jupiter.MockitoExtension;
- import org.springframework.beans.factory.annotation.Autowired;
- import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
- import org.springframework.boot.test.context.SpringBootTest;
- import org.springframework.boot.test.mock.mockito.MockBean;
- import org.springframework.http.MediaType;
- import org.springframework.kafka.core.KafkaTemplate;
- import org.springframework.test.context.ActiveProfiles;
- import org.springframework.test.web.servlet.MockMvc;
- import org.springframework.test.web.servlet.setup.MockMvcBuilders;
- import org.springframework.web.context.WebApplicationContext;
+  private static final Logger logger =
+      LoggerFactory.getLogger(FileSegmentsBuilderUseCaseImpl.class);
+  private final Map<String, List<String>> lineHashMap = new HashMap<>();
+  private Integer actualCount = 0;
 
- import javax.sql.DataSource;
+  @Override
+  public String processLine(String line) {
+    logger.info("Processing line: {}", line);
 
- @ExtendWith(MockitoExtension.class)
- @SpringBootTest
- @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
- @ActiveProfiles("test")
- class InvoicePaymentIntegrationTest {
-  private String urlWebhook = "/card_invoice_payment_notification/v1/invoice_payments";
+    String recordType = String.valueOf(line.charAt(7));
+    String segmentRecordDetailCode = String.valueOf(line.charAt(13));
+    boolean firstLine = SegmentTypeEnum.isT(segmentRecordDetailCode) && actualCount == 0;
 
-  @Mock private DoublePaymentValidationService doublePaymentValidationService;
+    if (RecordTypeEnum.isHeader(recordType)) {
+      String beneficiaryCode = line.substring(52, 61);
+      newLine(RecordTypeEnum.FILE_HEADER.getRecordTypeCode(), beneficiaryCode);
+      return null;
+    } else if (RecordTypeEnum.isDetail(recordType)) {
+      if (firstLine) {
+        actualCount++;
+        newLine(String.valueOf(actualCount), line);
+        return null;
+      } else {
+        if (SegmentTypeEnum.isT(segmentRecordDetailCode)) {
+          Integer lastCount = actualCount;
+          actualCount++;
+          newLine(String.valueOf(actualCount), line);
 
-  @Autowired private BilletInvoiceService billetInvoiceService;
+          String lineBuilded = buildLineByKey(lastCount).toString();
 
-  @Autowired private DataSource dataSource;
-
-  @Autowired private WebApplicationContext webApplicationContext;
-
-  @Autowired
-  private ObjectMapper objectMapper;
-
-  private MockMvc mockMvc;
-
-  @MockBean private KafkaTemplate<String, String> kafkaTemplate;
-
-  @MockBean private InvoiceToEntityMapper invoiceToEntityMapper;
-
-  @MockBean private PaymentToEntityMapper paymentToEntityMapper;
-
-  @Autowired
-  private InvoiceRepository invoiceRepository;
-
-  @Autowired
-  private PaymentRepository paymentRepository;
-
-  @Mock private InvoicePaymentRequest invoicePaymentRequest;
-
-  @InjectMocks private KafkaProviderImpl kafkaProviderImpl;
-
-  @BeforeEach
-  public void setup() {
-    mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-    invoicePaymentRequest = new InvoicePaymentRequest();
+          lineHashMap.remove(String.valueOf(lastCount));
+          return lineBuilded;
+        } else {
+          newLine(String.valueOf(actualCount), line);
+          return null;
+        }
+      }
+    } else if (RecordTypeEnum.isBatchTrailer(recordType)) {
+      return buildLineByKey(actualCount).toString();
+    } else return null;
   }
 
-  @Test
-  void testInvoicePaymentWebhook() throws Exception {
-    String requestBody =
-        new
-   String(Files.readAllBytes(Paths.get("src/test/resources/json/billed-invoice-yk.json")));
-   InvoicePaymentRequest invoicePaymentRequest = objectMapper.readValue(requestBody,InvoicePaymentRequest.class);
+  @Override
+  public StringBuilder build() {
+    StringBuilder fileLines = new StringBuilder();
 
-   InvoiceResponse invoiceResponse = invoiceResponseMock();
-   PaymentResponse paymentResponse = paymentResponseMock();
-   InvoiceData invoiceData = invoiceDataMock();
-   PaymentData paymentData = paymentDataMock();
+    String beneficiaryCode = lineHashMap.get(RecordTypeEnum.FILE_HEADER.getRecordTypeCode()).get(0);
+    lineHashMap.forEach(
+        (key, value) -> {
+          StringBuilder line = new StringBuilder();
 
-   invoiceRepository.save(invoiceData);
-   paymentRepository.save(paymentData);
+          if (RecordTypeEnum.isHeader(key)) return;
 
-//   when(invoiceRepository.findByIdentifier("000018WEBHOOK")).thenReturn(Optional.of(invoiceData));
-//   when(paymentRepository.findByPaymentId("123456")).thenReturn(Optional.of(paymentData));
-   when(doublePaymentValidationService.getByIndetifier(invoicePaymentRequest.getBankNumber() + invoicePaymentRequest.getClientNumber())).thenReturn(invoiceResponse);
-   when(doublePaymentValidationService.getPaymentByDate(invoiceResponse.getPaymentId())).thenReturn(paymentResponse);
+          value.forEach(line::append);
+          line.append(beneficiaryCode);
+          line.append("\n");
 
+          fileLines.append(line);
+        });
 
-   doNothing().when(kafkaTemplate).send(anyString(), anyString());
-
-    mockMvc
-        .perform(
-            post("/card_invoice_payment_notification/v1/invoice_payments")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(requestBody))
-        .andExpect(status().isAccepted());
-
-    verify(kafkaTemplate, times(1)).send(Mockito.any(ProducerRecord.class));
+    return fileLines;
   }
 
-  private InvoiceResponse invoiceResponseMock() {
-   return InvoiceResponse.builder().identifier("0000000000018EXEMPLO WEBHOOK").paymentId("67890").status("OPEN").build();
+  private StringBuilder buildLineByKey(Integer key) {
+    String beneficiaryCode = lineHashMap.get(RecordTypeEnum.FILE_HEADER.getRecordTypeCode()).get(0);
+
+    List<String> linesByKey = lineHashMap.get(String.valueOf(key));
+
+    StringBuilder line = new StringBuilder();
+    linesByKey.forEach(line::append);
+    line.append(beneficiaryCode);
+    line.append("\n");
+
+    return line;
   }
 
-  private PaymentResponse paymentResponseMock() {
-   return PaymentResponse.builder()
-           .paymentId("67890")
-           .paymentDate(OffsetDateTime.parse("2021-01-01T00:00:00Z"))
-           .build();
-  }
-  private InvoiceData invoiceDataMock() {
-   return InvoiceData.builder().identifier("000018WEBHOOK").paymentId("654321").status("PAID").build();
+  private void newLine(String lineNumber, String line) {
+    if (lineHashMap.containsKey(lineNumber)) {
+      lineHashMap.get(lineNumber).add(line);
+    } else {
+      List<String> lines = new ArrayList<>();
+      lines.add(line);
+      lineHashMap.put(lineNumber, lines);
+    }
   }
 
-  private PaymentData paymentDataMock() {
-   return PaymentData.builder()
-           .paymentDate(OffsetDateTime.parse("2021-01-01T00:00:00Z"))
-           .paymentId("123456")
-           .build();
+  public Map<String, List<String>> getLineHashMap() {
+    return lineHashMap;
   }
- }
- 
+}
+
+
+
+cnab 
+
+
+03300000        2000039536904010308480130002571     004928369           PAD CONF JOAO DIAS TESTE PERF BANCO SANTANDER (BRASIL) S/A            221052024      003247040                                                                          
+03300221T01  040 2000039536904010004928369           308480130002571     PAD CONF JOAO DIAS TESTE PERF                                                                                 0000324721052024                                         
+0330022300001T 61308480130002571        81915600014122401660000013420140520240000000001042740333084800334401660000013420095  001000057680361991WITYAE CUBEMSU GHOUAR                   01300025710000000000000000000000000                      
+0330022300002U 610000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002105202421052024000021052024000000000000000                              000                           
+0330022316989T 03308480130002571        82414200012032621669970072111050620240000000000000000333084800338621669970072111173  002007689002000189AMSDUAH K.A                             01300025710000000000000004748475247                      
+0330022316990U 030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002105202421052024000021052024000000000000000                              000                           
+03300225         0169901451910081444183736426000000000000000000000000000000000000000000000000000000000000000000000000000033                                                                                                                     
+03300229         000001016994                                                                                                                                                                                                                   
