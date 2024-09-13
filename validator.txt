@@ -1,1 +1,55 @@
 
+@Override
+public String processLine(String line) {
+    logger.info("Processing line: {}", line);
+
+    // Verifica se a linha tem exatamente 240 bytes
+    if (line.length() != 240) {
+        logger.error("Linha inválida: tamanho incorreto. Esperado 240, mas recebido {}", line.length());
+        // Se houver erro, você pode retornar uma mensagem de erro ou lançar uma exceção.
+        return null;
+    }
+
+    String recordType = String.valueOf(line.charAt(7));
+    String segmentRecordDetailCode = String.valueOf(line.charAt(13));
+    boolean firstLine = SegmentTypeEnum.isT(segmentRecordDetailCode) && actualCount == 0;
+
+    if (RecordTypeEnum.isHeader(recordType)) {
+        String beneficiaryCode = line.substring(52, 61);
+        newLine(RecordTypeEnum.FILE_HEADER.getRecordTypeCode(), beneficiaryCode);
+        return null;
+    } else if (RecordTypeEnum.isDetail(recordType)) {
+        if (firstLine) {
+            actualCount++;
+            newLine(String.valueOf(actualCount), line);
+            return null;
+        } else {
+            if (SegmentTypeEnum.isT(segmentRecordDetailCode)) {
+                // Processando a linha T
+                Integer lastCount = actualCount;
+                actualCount++;
+                newLine(String.valueOf(actualCount), line);
+                return null;
+            } else if (SegmentTypeEnum.isU(segmentRecordDetailCode)) {
+                // Processando a linha U
+                // Se a linha U for inválida, devemos remover a linha T associada
+                if (line.length() != 240) {
+                    logger.error("Linha U inválida. Revertendo linha T do boleto {}", actualCount);
+                    lineHashMap.remove(String.valueOf(actualCount));
+                    return null;
+                }
+
+                String lineBuilded = buildLineByKey(actualCount).toString();
+                lineHashMap.remove(String.valueOf(actualCount));
+                return lineBuilded;
+            } else {
+                newLine(String.valueOf(actualCount), line);
+                return null;
+            }
+        }
+    } else if (RecordTypeEnum.isBatchTrailer(recordType)) {
+        return buildLineByKey(actualCount).toString();
+    } else {
+        return null;
+    }
+}
