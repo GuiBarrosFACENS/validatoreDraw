@@ -11,6 +11,38 @@ public enum SegmentTypeEnum {
 }
 
 
+package com.santander.mpa.domain.enums;
+
+public enum RecordTypeEnum {
+  FILE_HEADER("0"),
+  BATCH_HEADER("1"),
+  DETAIL("3"),
+  BATCH_TRAILER("5"),
+  FILE_TRAILER("9");
+
+  private final String recordTypeCode;
+
+  RecordTypeEnum(String recordTypeCode) {
+    this.recordTypeCode = recordTypeCode;
+  }
+
+  public String getRecordTypeCode() {
+    return recordTypeCode;
+  }
+
+  public static boolean isHeader(String recordTypeCode) {
+    return FILE_HEADER.getRecordTypeCode().equals(recordTypeCode);
+  }
+
+  public static boolean isDetail(String recordType) {
+    return DETAIL.getRecordTypeCode().equals(recordType);
+  }
+
+  public static boolean isBatchTrailer(String recordType) {
+    return BATCH_TRAILER.getRecordTypeCode().equals(recordType);
+  }
+}
+
 
 
 
