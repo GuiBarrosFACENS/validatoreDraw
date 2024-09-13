@@ -1,48 +1,58 @@
 package com.santander.mpa.domain.enums;
 
 public enum SegmentTypeEnum {
-  T,
-  U,
-  Y;
+    T, U, Y;
 
-  public static boolean isT(String operationType) {
-    return T.name().equals(operationType);
-  }
+    public static boolean isT(String segmentCode) {
+        return T.name().equals(segmentCode);
+    }
+
+    public static boolean isU(String segmentCode) {
+        return U.name().equals(segmentCode);
+    }
+
+    public static boolean isY(String segmentCode) {
+        return Y.name().equals(segmentCode);
+    }
 }
+
 
 
 package com.santander.mpa.domain.enums;
 
 public enum RecordTypeEnum {
-  FILE_HEADER("0"),
-  BATCH_HEADER("1"),
-  DETAIL("3"),
-  BATCH_TRAILER("5"),
-  FILE_TRAILER("9");
+    FILE_HEADER("0"),
+    BATCH_HEADER("1"),
+    DETAIL("3"),
+    BATCH_TRAILER("5"),
+    FILE_TRAILER("9");
 
-  private final String recordTypeCode;
+    private final String recordTypeCode;
 
-  RecordTypeEnum(String recordTypeCode) {
-    this.recordTypeCode = recordTypeCode;
-  }
+    RecordTypeEnum(String recordTypeCode) {
+        this.recordTypeCode = recordTypeCode;
+    }
 
-  public String getRecordTypeCode() {
-    return recordTypeCode;
-  }
+    public String getRecordTypeCode() {
+        return recordTypeCode;
+    }
 
-  public static boolean isHeader(String recordTypeCode) {
-    return FILE_HEADER.getRecordTypeCode().equals(recordTypeCode);
-  }
+    public static boolean isHeader(String recordTypeCode) {
+        return FILE_HEADER.recordTypeCode.equals(recordTypeCode);
+    }
 
-  public static boolean isDetail(String recordType) {
-    return DETAIL.getRecordTypeCode().equals(recordType);
-  }
+    public static boolean isDetail(String recordTypeCode) {
+        return DETAIL.recordTypeCode.equals(recordTypeCode);
+    }
 
-  public static boolean isBatchTrailer(String recordType) {
-    return BATCH_TRAILER.getRecordTypeCode().equals(recordType);
-  }
+    public static boolean isBatchTrailer(String recordTypeCode) {
+        return BATCH_TRAILER.recordTypeCode.equals(recordTypeCode);
+    }
+
+    public static boolean isFileTrailer(String recordTypeCode) {
+        return FILE_TRAILER.recordTypeCode.equals(recordTypeCode);
+    }
 }
-
 
 
 
@@ -51,118 +61,59 @@ package com.santander.mpa.domain.usecase.impl;
 import com.santander.mpa.domain.enums.RecordTypeEnum;
 import com.santander.mpa.domain.enums.SegmentTypeEnum;
 import com.santander.mpa.domain.usecase.FileSegmentsBuilderUseCase;
-import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.*;
+
 public class FileSegmentsBuilderUseCaseImpl implements FileSegmentsBuilderUseCase {
 
-  private static final Logger logger =
-      LoggerFactory.getLogger(FileSegmentsBuilderUseCaseImpl.class);
-  private final Map<String, List<String>> lineHashMap = new HashMap<>();
-  private Integer actualCount = 0;
+    private static final Logger logger = LoggerFactory.getLogger(FileSegmentsBuilderUseCaseImpl.class);
+    private final Map<String, List<String>> lineHashMap = new HashMap<>();
+    private Integer actualCount = 0;
 
-  @Override
-  public String processLine(String line) {
-    logger.info("Processing line: {}", line);
+    @Override
+    public String processLine(String line) {
+        logger.info("Processing line: {}", line);
 
-    String recordType = String.valueOf(line.charAt(7));
-    String segmentRecordDetailCode = String.valueOf(line.charAt(13));
-    boolean firstLine = SegmentTypeEnum.isT(segmentRecordDetailCode) && actualCount == 0;
-
-    // Verifica se a linha tem exatamente 240 bytes
-    if (line.length() != 240) {
-      logger.error("Erro: Linha inválida, tamanho incorreto. Esperado 240, mas recebido {}. Linha: {}", line.length(), line);
-      // Se a linha for inválida, retorna null e segue para o próximo boleto
-      return null;
-    }
-
-    if (RecordTypeEnum.isHeader(recordType)) {
-      String beneficiaryCode = line.substring(52, 61);
-      newLine(RecordTypeEnum.FILE_HEADER.getRecordTypeCode(), beneficiaryCode);
-      return null;
-    } else if (RecordTypeEnum.isDetail(recordType)) {
-      if (firstLine) {
-        actualCount++;
-        newLine(String.valueOf(actualCount), line);
-        return null;
-      } else {
-        if (SegmentTypeEnum.isT(segmentRecordDetailCode)) {
-          // Processando a linha T
-          Integer lastCount = actualCount;
-          actualCount++;
-          newLine(String.valueOf(actualCount), line);
-          return null;
-        } else if (SegmentTypeEnum.isU(segmentRecordDetailCode)) {
-          // Processando a linha U
-          if (line.length() != 240) {
-            logger.error("Erro na linha U do boleto {}: tamanho incorreto ({} bytes). Boleto ignorado.", actualCount, line.length());
-            // Se a linha U for inválida, remove a linha T correspondente e ignora esse boleto
-            lineHashMap.remove(String.valueOf(actualCount));
-            return null; // Segue para o próximo boleto sem enviar nada
-          }
-
-          // Se ambos T e U forem válidos, constrói o boleto
-          String lineBuilded = buildLineByKey(actualCount).toString();
-          lineHashMap.remove(String.valueOf(actualCount));
-          return lineBuilded;
-        } else {
-          newLine(String.valueOf(actualCount), line);
-          return null;
+        if (line.length() != 240) {
+            logger.error("Erro: Linha inválida, tamanho incorreto. Esperado 240, mas recebido {}. Linha: {}", line.length(), line);
+            return null;
         }
-      }
-    } else if (RecordTypeEnum.isBatchTrailer(recordType)) {
-      return buildLineByKey(actualCount).toString();
-    } else {
-      return null;
-    }
-  }
 
-  @Override
-  public StringBuilder build() {
-    StringBuilder fileLines = new StringBuilder();
+        String recordType = String.valueOf(line.charAt(7));
+        String segmentCode = String.valueOf(line.charAt(13));
 
-    String beneficiaryCode = lineHashMap.get(RecordTypeEnum.FILE_HEADER.getRecordTypeCode()).get(0);
-    lineHashMap.forEach(
-        (key, value) -> {
-          StringBuilder line = new StringBuilder();
+        if (RecordTypeEnum.isHeader(recordType)) {
+            String beneficiaryCode = line.substring(52, 61);
+            newLine(RecordTypeEnum.FILE_HEADER.getRecordTypeCode(), beneficiaryCode);
+            return null;
+        }
 
-          if (RecordTypeEnum.isHeader(key)) return;
+        if (RecordTypeEnum.isDetail(recordType)) {
+            if (SegmentTypeEnum.isT(segmentCode) && actualCount == 0) {
+                actualCount++;
+                newLine(String.valueOf(actualCount), line);
+                return null;
+            }
 
-          value.forEach(line::append);
-          line.append(beneficiaryCode);
-          line.append("\n");
+            if (SegmentTypeEnum.isT(segmentCode)) {
+                actualCount++;
+                newLine(String.valueOf(actualCount), line);
+                return null;
+            }
 
-          fileLines.append(line);
-        });
+            if (SegmentTypeEnum.isU(segmentCode)) {
+                if (line.length() != 240) {
+                    logger.error("Erro na linha U do boleto {}: tamanho incorreto ({} bytes). Boleto ignorado.", actualCount, line.length());
+                    lineHashMap.remove(String.valueOf(actualCount));
+                    return null;
+                }
 
-    return fileLines;
-  }
+                String completedLine = buildLineByKey(actualCount).toString();
+                lineHashMap.remove(String.valueOf(actualCount));
+                return completedLine;
+            }
 
-  private StringBuilder buildLineByKey(Integer key) {
-    String beneficiaryCode = lineHashMap.get(RecordTypeEnum.FILE_HEADER.getRecordTypeCode()).get(0);
-
-    List<String> linesByKey = lineHashMap.get(String.valueOf(key));
-
-    StringBuilder line = new StringBuilder();
-    linesByKey.forEach(line::append);
-    line.append(beneficiaryCode);
-    line.append("\n");
-
-    return line;
-  }
-
-  private void newLine(String lineNumber, String line) {
-    if (lineHashMap.containsKey(lineNumber)) {
-      lineHashMap.get(lineNumber).add(line);
-    } else {
-      List<String> lines = new ArrayList<>();
-      lines.add(line);
-      lineHashMap.put(lineNumber, lines);
-    }
-  }
-
-  public Map<String, List<String>> getLineHashMap() {
-    return lineHashMap;
-  }
-}
+            newLine(String.valueOf(actualCount), line);
+        } else if (RecordTypeEnum.is
