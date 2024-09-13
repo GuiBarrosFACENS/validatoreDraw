@@ -116,4 +116,48 @@ public class FileSegmentsBuilderUseCaseImpl implements FileSegmentsBuilderUseCas
             }
 
             newLine(String.valueOf(actualCount), line);
-        } else if (RecordTypeEnum.is
+        } else if (RecordTypeEnum.isBatchTrailer(recordType)) {
+            return buildLineByKey(actualCount).toString();
+        }
+
+        return null;
+    }
+
+    @Override
+    public StringBuilder build() {
+        StringBuilder fileLines = new StringBuilder();
+
+        String beneficiaryCode = lineHashMap.get(RecordTypeEnum.FILE_HEADER.getRecordTypeCode()).get(0);
+        lineHashMap.forEach((key, value) -> {
+            if (RecordTypeEnum.isHeader(key)) return;
+
+            StringBuilder line = new StringBuilder();
+            value.forEach(line::append);
+            line.append(beneficiaryCode).append("\n");
+
+            fileLines.append(line);
+        });
+
+        return fileLines;
+    }
+
+    private StringBuilder buildLineByKey(Integer key) {
+        List<String> lines = lineHashMap.get(String.valueOf(key));
+        String beneficiaryCode = lineHashMap.get(RecordTypeEnum.FILE_HEADER.getRecordTypeCode()).get(0);
+
+        StringBuilder line = new StringBuilder();
+        lines.forEach(line::append);
+        line.append(beneficiaryCode).append("\n");
+
+        return line;
+    }
+
+    private void newLine(String lineNumber, String line) {
+        lineHashMap.computeIfAbsent(lineNumber, k -> new ArrayList<>()).add(line);
+    }
+
+    public Map<String, List<String>> getLineHashMap() {
+        return lineHashMap;
+    }
+}
+
