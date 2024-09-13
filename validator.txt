@@ -53,3 +53,28 @@ public String processLine(String line) {
         return null;
     }
 }
+
+
+public enum SegmentTypeEnum {
+    T("T"),
+    U("U");
+
+    private final String code;
+
+    SegmentTypeEnum(String code) {
+        this.code = code;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public static boolean isT(String segmentCode) {
+        return T.getCode().equals(segmentCode);
+    }
+
+    public static boolean isU(String segmentCode) {
+        return U.getCode().equals(segmentCode);
+    }
+}
+
