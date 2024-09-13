@@ -1,42 +1,119 @@
-09:28:07.650[    main] INFO  s.m.d.u.i.FileSegmentsBuilderUseCaseImpl  :  :  : Processing line: 03300225         0169901451910081444183736426000000000000000000000000000000000000000000000000000000000000000000000000000033                                                                                                                     
-09:28:08.208[    main] INFO    c.s.m.infra.logger.LoggerChuckListener  :  :  : Error during chunk processing: mergeInvoiceSegmentsLinesStep
-09:28:08.210[    main] ERROR         o.s.batch.core.step.AbstractStep  :  :  : Encountered an error executing step mergeInvoiceSegmentsLinesStep in job processJob
-java.lang.NullPointerException: Cannot invoke "java.util.List.forEach(java.util.function.Consumer)" because "linesByKey" is null
-	at com.santander.mpa.domain.usecase.impl.FileSegmentsBuilderUseCaseImpl.buildLineByKey(FileSegmentsBuilderUseCaseImpl.java:100)
-	at com.santander.mpa.domain.usecase.impl.FileSegmentsBuilderUseCaseImpl.processLine(FileSegmentsBuilderUseCaseImpl.java:67)
-	at com.santander.mpa.app.service.processors.FileSegmentsProcessorService.process(FileSegmentsProcessorService.java:21)
-	at com.santander.mpa.app.service.processors.FileSegmentsProcessorService.process(FileSegmentsProcessorService.java:1)
-	at org.springframework.batch.core.step.item.SimpleChunkProcessor.doProcess(SimpleChunkProcessor.java:146)
-	at org.springframework.batch.core.step.item.SimpleChunkProcessor.transform(SimpleChunkProcessor.java:322)
-	at org.springframework.batch.core.step.item.SimpleChunkProcessor.process(SimpleChunkProcessor.java:220)
-	at org.springframework.batch.core.step.item.ChunkOrientedTasklet.execute(ChunkOrientedTasklet.java:75)
-	at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:388)
-	at org.springframework.batch.core.step.tasklet.TaskletStep$ChunkTransactionCallback.doInTransaction(TaskletStep.java:312)
-	at org.springframework.transaction.support.TransactionTemplate.execute(TransactionTemplate.java:140)
-	at org.springframework.batch.core.step.tasklet.TaskletStep$2.doInChunkContext(TaskletStep.java:255)
-	at org.springframework.batch.core.scope.context.StepContextRepeatCallback.doInIteration(StepContextRepeatCallback.java:82)
-	at org.springframework.batch.repeat.support.RepeatTemplate.getNextResult(RepeatTemplate.java:369)
-	at org.springframework.batch.repeat.support.RepeatTemplate.executeInternal(RepeatTemplate.java:206)
-	at org.springframework.batch.repeat.support.RepeatTemplate.iterate(RepeatTemplate.java:140)
-	at org.springframework.batch.core.step.tasklet.TaskletStep.doExecute(TaskletStep.java:240)
-	at org.springframework.batch.core.step.AbstractStep.execute(AbstractStep.java:229)
-	at org.springframework.batch.core.job.SimpleStepHandler.handleStep(SimpleStepHandler.java:153)
-	at org.springframework.batch.core.job.AbstractJob.handleStep(AbstractJob.java:418)
-	at org.springframework.batch.core.job.SimpleJob.doExecute(SimpleJob.java:132)
-	at org.springframework.batch.core.job.AbstractJob.execute(AbstractJob.java:317)
-	at org.springframework.batch.core.launch.support.SimpleJobLauncher$1.run(SimpleJobLauncher.java:157)
-	at org.springframework.core.task.SyncTaskExecutor.execute(SyncTaskExecutor.java:50)
-	at org.springframework.batch.core.launch.support.SimpleJobLauncher.run(SimpleJobLauncher.java:148)
-	at org.springframework.batch.core.launch.support.TaskExecutorJobLauncher.run(TaskExecutorJobLauncher.java:59)
-	at org.springframework.boot.autoconfigure.batch.JobLauncherApplicationRunner.execute(JobLauncherApplicationRunner.java:210)
-	at org.springframework.boot.autoconfigure.batch.JobLauncherApplicationRunner.executeLocalJobs(JobLauncherApplicationRunner.java:194)
-	at org.springframework.boot.autoconfigure.batch.JobLauncherApplicationRunner.launchJobFromProperties(JobLauncherApplicationRunner.java:174)
-	at org.springframework.boot.autoconfigure.batch.JobLauncherApplicationRunner.run(JobLauncherApplicationRunner.java:169)
-09:28:08.213[    main] INFO   c.s.mpa.infra.logger.LoggerStepListener  :  :  : Step has completed with status: FAILED
-09:28:08.217[    main] INFO          o.s.batch.core.step.AbstractStep  :  :  : Step: [mergeInvoiceSegmentsLinesStep] executed in 2m7s939ms
-09:28:08.228[    main] INFO       o.s.b.c.l.support.SimpleJobLauncher  :  :  : Job: [SimpleJob: [name=processJob]] completed with the following parameters: [{'run.id':'{value=1, type=class java.lang.Long, identifying=true}'}] and the following status: [FAILED] in 2m7s967ms
-09:28:08.250[    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : HikariPool-1 - Shutdown initiated...
-09:28:08.253[    main] INFO        com.zaxxer.hikari.HikariDataSource  :  :  : HikariPool-1 - Shutdown completed.
-Disconnected from the target VM, address: '127.0.0.1:65369', transport: 'socket'
+package com.santander.mpa.domain.usecase.impl;
 
-Process finished with exit code 5
+import com.santander.mpa.domain.enums.RecordTypeEnum;
+import com.santander.mpa.domain.enums.SegmentTypeEnum;
+import com.santander.mpa.domain.usecase.FileSegmentsBuilderUseCase;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class FileSegmentsBuilderUseCaseImpl implements FileSegmentsBuilderUseCase {
+
+    private static final Logger logger = LoggerFactory.getLogger(FileSegmentsBuilderUseCaseImpl.class);
+    private final Map<String, List<String>> lineHashMap = new HashMap<>();
+    private Integer actualCount = 0;
+
+    @Override
+    public String processLine(String line) {
+        logger.info("Processing line: {}", line);
+
+        String recordType = String.valueOf(line.charAt(7));
+        String segmentRecordDetailCode = String.valueOf(line.charAt(13));
+        boolean firstLine = SegmentTypeEnum.isT(segmentRecordDetailCode) && actualCount == 0;
+
+        // Verifica se a linha tem exatamente 240 bytes
+        if (line.getBytes(StandardCharsets.UTF_8).length != 240) {
+            logger.error("Erro: Linha inválida, tamanho incorreto. Esperado 240 bytes, mas recebido {} bytes. Linha: {}", line.getBytes(StandardCharsets.UTF_8).length, line);
+            // Se a linha for inválida, retorna null e segue para o próximo boleto
+            return null;
+        }
+
+        if (RecordTypeEnum.isHeader(recordType)) {
+            String beneficiaryCode = line.substring(52, 61);
+            newLine(RecordTypeEnum.FILE_HEADER.getRecordTypeCode(), beneficiaryCode);
+            return null;
+        } else if (RecordTypeEnum.isDetail(recordType)) {
+            if (firstLine) {
+                actualCount++;
+                newLine(String.valueOf(actualCount), line);
+                return null;
+            } else {
+                if (SegmentTypeEnum.isT(segmentRecordDetailCode)) {
+                    // Processando a linha T
+                    Integer lastCount = actualCount;
+                    actualCount++;
+                    newLine(String.valueOf(actualCount), line);
+                    return null;
+                } else if (SegmentTypeEnum.isU(segmentRecordDetailCode)) {
+                    // Processando a linha U
+                    if (line.getBytes(StandardCharsets.UTF_8).length != 240) {
+                        logger.error("Erro na linha U do boleto {}: tamanho incorreto ({} bytes). Boleto ignorado.", actualCount, line.getBytes(StandardCharsets.UTF_8).length);
+                        // Se a linha U for inválida, remove a linha T correspondente e ignora esse boleto
+                        lineHashMap.remove(String.valueOf(actualCount));
+                        return null; // Segue para o próximo boleto sem enviar nada
+                    }
+
+                    // Se ambos T e U forem válidos, constrói o boleto
+                    String lineBuilded = buildLineByKey(actualCount).toString();
+                    lineHashMap.remove(String.valueOf(actualCount));
+                    return lineBuilded;
+                } else {
+                    newLine(String.valueOf(actualCount), line);
+                    return null;
+                }
+            }
+        } else if (RecordTypeEnum.isBatchTrailer(recordType)) {
+            return buildLineByKey(actualCount).toString();
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public StringBuilder build() {
+        StringBuilder fileLines = new StringBuilder();
+
+        String beneficiaryCode = lineHashMap.get(RecordTypeEnum.FILE_HEADER.getRecordTypeCode()).get(0);
+        lineHashMap.forEach(
+            (key, value) -> {
+                if (RecordTypeEnum.isHeader(key)) return;
+
+                StringBuilder line = new StringBuilder();
+                value.forEach(line::append);
+                line.append(beneficiaryCode);
+                line.append("\n");
+
+                fileLines.append(line);
+            }
+        );
+
+        return fileLines;
+    }
+
+    private StringBuilder buildLineByKey(Integer key) {
+        String beneficiaryCode = lineHashMap.get(RecordTypeEnum.FILE_HEADER.getRecordTypeCode()).get(0);
+
+        List<String> linesByKey = lineHashMap.get(String.valueOf(key));
+
+        if (linesByKey == null) {
+            logger.error("Erro: Não encontrado linhas para a chave {}", key);
+            return new StringBuilder(); // Retorna uma StringBuilder vazia se não encontrar linhas
+        }
+
+        StringBuilder line = new StringBuilder();
+        linesByKey.forEach(line::append);
+        line.append(beneficiaryCode);
+        line.append("\n");
+
+        return line;
+    }
+
+    private void newLine(String lineNumber, String line) {
+        lineHashMap.computeIfAbsent(lineNumber, k -> new ArrayList<>()).add(line);
+    }
+
+    public Map<String, List<String>> getLineHashMap() {
+        return lineHashMap;
+    }
+}
